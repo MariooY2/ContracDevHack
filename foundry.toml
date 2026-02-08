@@ -1,0 +1,22 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.26"
+evm_version = "cancun"
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+remappings = [
+  "@openzeppelin/=lib/openzeppelin-contracts/"
+]
+# RPC endpoints
+[rpc_endpoints]
+mainnet = "https://rpc.contract.dev/aa90bfbbcb2a1e1bdd12e535147175c3"
+
+# Etherscan
+[etherscan]
+mainnet = { key = "${ETHERSCAN_API_KEY}" }
+
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
