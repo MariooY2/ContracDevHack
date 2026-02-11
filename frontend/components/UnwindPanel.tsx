@@ -8,16 +8,20 @@ interface UnwindPanelProps {
   debtBalance: bigint;
   collateralBalance: bigint;
   healthFactor: number;
+  exchangeRate: number;
   onSuccess: () => void;
 }
 
-export default function UnwindPanel({ debtBalance, collateralBalance, healthFactor, onSuccess }: UnwindPanelProps) {
+export default function UnwindPanel({ debtBalance, collateralBalance, healthFactor, exchangeRate, onSuccess }: UnwindPanelProps) {
   const { isConnected, executeDeleverage } = useLeverageContract();
   const [executing, setExecuting] = useState(false);
   const [txStatus, setTxStatus] = useState('');
 
   const hasPosition = debtBalance > 0n;
-  const equity = collateralBalance - debtBalance;
+  // Cross-asset: collateral is wstETH, debt is WETH
+  // Estimate wstETH returned: collateral - debt/exchangeRate
+  const debtInWsteth = exchangeRate > 0 ? BigInt(Math.floor(Number(debtBalance) / exchangeRate)) : 0n;
+  const equity = collateralBalance > debtInWsteth ? collateralBalance - debtInWsteth : 0n;
 
   const handleUnwind = async () => {
     setExecuting(true);
@@ -60,13 +64,13 @@ export default function UnwindPanel({ debtBalance, collateralBalance, healthFact
         <div className="flex justify-between">
           <span className="text-sm text-[#94a3b8]">Debt to Repay</span>
           <span className="text-sm font-semibold text-[#ef4444]">
-            {Number(formatEther(debtBalance)).toFixed(4)} wstETH
+            {Number(formatEther(debtBalance)).toFixed(4)} WETH
           </span>
         </div>
         <div className="border-t border-[#2a3555] pt-3 flex justify-between">
           <span className="text-sm text-[#94a3b8]">You Receive (est.)</span>
           <span className="text-sm font-bold text-[#e2e8f0]">
-            ~{Number(formatEther(equity > 0n ? equity : 0n)).toFixed(4)} wstETH
+            ~{Number(formatEther(equity)).toFixed(4)} wstETH
           </span>
         </div>
         <div className="flex justify-between">

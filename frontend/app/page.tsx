@@ -10,6 +10,7 @@ import YieldBreakdown from '@/components/YieldBreakdown';
 import PriceChart from '@/components/PriceChart';
 import DepegChart from '@/components/DepegChart';
 import { useLeverageContract } from '@/hooks/useLeverageContract';
+import { PageLoader } from '@/components/Loader';
 import type { ReserveInfo } from '@/lib/types';
 
 export default function Home() {
@@ -18,6 +19,7 @@ export default function Home() {
     getReserveInfo, getExchangeRate, getWstethBalance,
   } = useLeverageContract();
 
+  const [mounted, setMounted] = useState(false);
   const [collateralBalance, setCollateralBalance] = useState(0n);
   const [debtBalance, setDebtBalance] = useState(0n);
   const [healthFactor, setHealthFactor] = useState(0);
@@ -25,6 +27,9 @@ export default function Home() {
   const [exchangeRate, setExchangeRate] = useState(1.228);
   const [walletBalance, setWalletBalance] = useState(0n);
   const [activeTab, setActiveTab] = useState<'leverage' | 'unwind'>('leverage');
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  useEffect(() => { setMounted(true); }, []);
 
   const refreshData = useCallback(async () => {
     try {
@@ -51,6 +56,7 @@ export default function Home() {
         setExchangeRate(rate);
       } catch {}
     }
+    setInitialLoading(false);
   }, [isConnected]);
 
   useEffect(() => {
@@ -59,40 +65,50 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [refreshData]);
 
-  const currentLeverage = debtBalance > 0n
-    ? Number(formatEther(collateralBalance)) / (Number(formatEther(collateralBalance)) - Number(formatEther(debtBalance)))
+  // Cross-asset leverage: convert wstETH collateral to ETH terms before dividing
+  const collateralEth = Number(formatEther(collateralBalance)) * exchangeRate;
+  const debtEth = Number(formatEther(debtBalance)); // WETH = ETH
+  const currentLeverage = debtBalance > 0n && collateralEth > debtEth
+    ? collateralEth / (collateralEth - debtEth)
     : 1;
 
   return (
-    <div className="min-h-screen" style={{ background: '#0a0e17' }}>
+    <div className="min-h-screen bg-grid-pattern">
+      {/* Ambient glow effects */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full opacity-15 blur-[120px]" style={{ background: 'var(--accent-primary)' }} />
+        <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full opacity-10 blur-[120px]" style={{ background: 'var(--accent-secondary)' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-5 blur-[150px]" style={{ background: 'var(--accent-info)' }} />
+      </div>
+
       {/* Header */}
-      <header className="border-b border-[#2a3555]" style={{ background: 'rgba(26, 32, 53, 0.8)', backdropFilter: 'blur(12px)' }}>
+      <header className="sticky top-0 z-50 border-b-2 border-[var(--border)]" style={{ background: 'rgba(13, 13, 13, 0.9)', backdropFilter: 'blur(20px)' }}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)' }}>
-              <span className="text-white font-bold text-lg">W</span>
+            <div className="logo-mark w-10 h-10 flex items-center justify-center">
+              <span className="text-[var(--bg-primary)] font-black text-lg">F</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold gradient-text">wstETH Leverage</h1>
-              <p className="text-xs text-[#64748b]">Powered by Aave V3 Flash Loans</p>
+              <h1 className="text-xl font-bold gradient-text tracking-wider">FlashLev</h1>
+              <p className="text-xs text-[var(--text-muted)] font-mono">DeFi Leverage Protocol</p>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             {/* Live Stats */}
             {reserveInfo && (
-              <div className="hidden md:flex items-center gap-4 text-xs">
-                <div className="px-3 py-1.5 rounded-lg" style={{ background: '#111827' }}>
-                  <span className="text-[#64748b]">LTV </span>
-                  <span className="text-[#e2e8f0] font-semibold">{reserveInfo.ltv.toFixed(1)}%</span>
+              <div className="hidden md:flex items-center gap-1 text-xs">
+                <div className="stat-chip">
+                  <span className="stat-label">LTV</span>
+                  <span className="stat-value">{reserveInfo.ltv.toFixed(1)}%</span>
                 </div>
-                <div className="px-3 py-1.5 rounded-lg" style={{ background: '#111827' }}>
-                  <span className="text-[#64748b]">Borrow </span>
-                  <span className="text-[#f59e0b] font-semibold">{reserveInfo.borrowAPY.toFixed(3)}%</span>
+                <div className="stat-chip">
+                  <span className="stat-label">Borrow</span>
+                  <span className="stat-value text-[var(--accent-warning)]">{reserveInfo.borrowAPY.toFixed(3)}%</span>
                 </div>
-                <div className="px-3 py-1.5 rounded-lg" style={{ background: '#111827' }}>
-                  <span className="text-[#64748b]">Staking </span>
-                  <span className="text-[#10b981] font-semibold">{reserveInfo.stakingYield}%</span>
+                <div className="stat-chip">
+                  <span className="stat-label">Yield</span>
+                  <span className="stat-value text-[var(--accent-primary)]">{reserveInfo.stakingYield}%</span>
                 </div>
               </div>
             )}
@@ -102,25 +118,29 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-8 relative z-10">
+        {initialLoading ? (
+          <PageLoader label="Connecting to Protocol" />
+        ) : (
+        <>
         {/* Wallet Balance Banner */}
-        {isConnected && (
+        {mounted && isConnected && (
           <div className="card-glow p-4 mb-8 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
-                <span className="text-white text-sm font-bold">W</span>
+              <div className="w-8 h-8 flex items-center justify-center" style={{ background: 'var(--accent-primary)', clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }}>
+                <span className="text-[var(--bg-primary)] text-xs font-black">$</span>
               </div>
               <div>
-                <p className="text-xs text-[#64748b]">Wallet Balance</p>
-                <p className="text-lg font-bold text-[#e2e8f0]">
-                  {Number(formatEther(walletBalance)).toFixed(4)} wstETH
+                <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider">Wallet Balance</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">
+                  {Number(formatEther(walletBalance)).toFixed(4)} <span className="text-[var(--accent-primary)]">wstETH</span>
                 </p>
               </div>
             </div>
             {debtBalance > 0n && (
               <div className="text-right">
-                <p className="text-xs text-[#64748b]">Active Position</p>
-                <p className="text-lg font-bold text-[#3b82f6]">{currentLeverage.toFixed(1)}x Leverage</p>
+                <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider">Active Position</p>
+                <p className="text-lg font-bold text-[var(--accent-primary)]">{currentLeverage.toFixed(1)}x Leverage</p>
               </div>
             )}
           </div>
@@ -136,33 +156,31 @@ export default function Home() {
               reserveInfo={reserveInfo}
               exchangeRate={exchangeRate}
             />
-            <PriceChart exchangeRate={exchangeRate} />
+            <PriceChart exchangeRate={exchangeRate} reserveInfo={reserveInfo} />
             <DepegChart reserveInfo={reserveInfo} />
           </div>
 
           {/* Right Column: Actions + Yield */}
           <div className="space-y-6">
             {/* Tab Switcher */}
-            <div className="flex rounded-xl overflow-hidden" style={{ background: '#111827' }}>
+            <div className="flex border-2 border-[var(--border)] overflow-hidden">
               <button
                 onClick={() => setActiveTab('leverage')}
-                className={`flex-1 py-3 text-sm font-semibold transition-all ${
+                className={`flex-1 py-3 text-sm font-bold uppercase tracking-widest transition-all ${
                   activeTab === 'leverage'
-                    ? 'text-white'
-                    : 'text-[#64748b] hover:text-[#94a3b8]'
+                    ? 'text-[var(--bg-primary)] bg-[var(--accent-primary)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-secondary)]'
                 }`}
-                style={activeTab === 'leverage' ? { background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)' } : {}}
               >
                 Leverage
               </button>
               <button
                 onClick={() => setActiveTab('unwind')}
-                className={`flex-1 py-3 text-sm font-semibold transition-all ${
+                className={`flex-1 py-3 text-sm font-bold uppercase tracking-widest transition-all ${
                   activeTab === 'unwind'
-                    ? 'text-white'
-                    : 'text-[#64748b] hover:text-[#94a3b8]'
+                    ? 'text-[var(--text-primary)] bg-[var(--accent-secondary)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-secondary)]'
                 }`}
-                style={activeTab === 'unwind' ? { background: 'linear-gradient(135deg, #ef4444, #dc2626)' } : {}}
               >
                 Unwind
               </button>
@@ -170,12 +188,17 @@ export default function Home() {
 
             {/* Action Panel */}
             {activeTab === 'leverage' ? (
-              <LeveragePanel onSuccess={refreshData} />
+              <LeveragePanel
+                onSuccess={refreshData}
+                reserveInfo={reserveInfo}
+                exchangeRate={exchangeRate}
+              />
             ) : (
               <UnwindPanel
                 debtBalance={debtBalance}
                 collateralBalance={collateralBalance}
                 healthFactor={healthFactor}
+                exchangeRate={exchangeRate}
                 onSuccess={refreshData}
               />
             )}
@@ -188,13 +211,15 @@ export default function Home() {
             />
           </div>
         </div>
+        </>
+        )}
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#2a3555] mt-12">
-        <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between text-xs text-[#64748b]">
-          <p>Built with Aave V3 Flash Loans on Contract.dev</p>
-          <p>Use at your own risk. Not financial advice.</p>
+      <footer className="border-t-2 border-[var(--border)] mt-12">
+        <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between text-xs text-[var(--text-muted)] font-mono">
+          <p>FlashLev // Aave V3 Flash Loans</p>
+          <p className="text-[var(--accent-secondary)]">Use at your own risk</p>
         </div>
       </footer>
     </div>

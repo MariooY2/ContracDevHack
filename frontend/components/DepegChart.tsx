@@ -5,6 +5,7 @@ import { createPublicClient, http, formatEther } from 'viem';
 import { RPC_URL } from '@/lib/types';
 import { WSTETH_ABI, ADDRESSES } from '@/lib/leverageContract';
 import { contractDevMainnet } from '@/lib/wagmi';
+import { CardLoader } from '@/components/Loader';
 
 interface DepegPoint {
   date: string;
@@ -17,7 +18,7 @@ interface DepegPoint {
 // Aave V3 wstETH liquidation threshold
 const DEFAULT_LLTV = 0.81;
 const SAFETY_BUFFER = 0.20;
-const STAKING_APY = 0.032; // ~3.2% annual yield for wstETH
+const DEFAULT_STAKING_APY = 0.032; // Fallback ~3.2% annual yield for wstETH
 
 // Max depeg before liquidation at leverage L:
 // max_depeg = 1 - (L-1)/(L * LLTV)
@@ -37,7 +38,7 @@ function maxLeverageFromDepeg(maxDepegPct: number, safetyBuffer: number, lltv: n
 }
 
 interface DepegChartProps {
-  reserveInfo: { liquidationThreshold: number } | null;
+  reserveInfo: { liquidationThreshold: number; stakingYield: number; maxLeverage: number } | null;
 }
 
 export default function DepegChart({ reserveInfo }: DepegChartProps) {
@@ -48,6 +49,10 @@ export default function DepegChart({ reserveInfo }: DepegChartProps) {
   const lltv = reserveInfo?.liquidationThreshold
     ? reserveInfo.liquidationThreshold / 100
     : DEFAULT_LLTV;
+
+  const stakingAPY = reserveInfo?.stakingYield
+    ? reserveInfo.stakingYield / 100 // Convert from % to decimal
+    : DEFAULT_STAKING_APY;
 
   useEffect(() => {
     fetchDepegData();
@@ -122,7 +127,7 @@ export default function DepegChart({ reserveInfo }: DepegChartProps) {
         // Reconstruct historical intrinsic value
         // intrinsic(t) = intrinsic(now) / (1 + apy)^years_elapsed
         const yearsAgo = (now - ts) / (365.25 * 24 * 3600 * 1000);
-        const growthFactor = Math.pow(1 + STAKING_APY, yearsAgo);
+        const growthFactor = Math.pow(1 + stakingAPY, yearsAgo);
         const historicalIntrinsic = currentIntrinsic / growthFactor;
 
         // Depeg percentage
@@ -157,8 +162,10 @@ export default function DepegChart({ reserveInfo }: DepegChartProps) {
   const maxHistoricalDepeg = absDepegValues.length > 0 ? Math.max(...absDepegValues) : 0;
   const currentDepeg = data.length > 0 ? data[data.length - 1].depegPct : 0;
 
-  // Max safe leverage using the Python script's formula
-  const maxSafeLeverage = maxLeverageFromDepeg(maxHistoricalDepeg, SAFETY_BUFFER, lltv);
+  // Max safe leverage using the Python script's formula, capped at contract max
+  const calculatedMaxLeverage = maxLeverageFromDepeg(maxHistoricalDepeg, SAFETY_BUFFER, lltv);
+  const contractMaxLeverage = reserveInfo?.maxLeverage || 1 / (1 - lltv);
+  const maxSafeLeverage = Math.min(calculatedMaxLeverage, contractMaxLeverage);
   const conservativeLev = maxSafeLeverage * 0.6;
   const moderateLev = maxSafeLeverage * 0.8;
   const aggressiveLev = maxSafeLeverage;
@@ -254,10 +261,7 @@ export default function DepegChart({ reserveInfo }: DepegChartProps) {
       </div>
 
       {loading ? (
-        <div className="bg-[#111827] rounded-xl p-12 text-center">
-          <div className="inline-block w-6 h-6 border-2 border-[#f59e0b] border-t-transparent rounded-full animate-spin mb-3" />
-          <p className="text-sm text-[#64748b]">Fetching price history...</p>
-        </div>
+        <CardLoader label="Analyzing risk data" />
       ) : error ? (
         <div className="bg-[#111827] rounded-xl p-8 text-center">
           <p className="text-sm text-[#ef4444]">{error}</p>
@@ -335,26 +339,30 @@ export default function DepegChart({ reserveInfo }: DepegChartProps) {
                 <path d={depegPath} fill="none" stroke="#8b5cf6" strokeWidth="2" />
               )}
 
-              {/* Worst depeg dot - Improved label */}
+              {/* Worst discount dot (maximum negative depeg = liquidation risk) */}
               {data.length > 0 && (() => {
-                const worstIdx = absDepegValues.indexOf(Math.max(...absDepegValues));
-                if (worstIdx >= 0 && worstIdx < data.length) {
-                  const isNegative = data[worstIdx].depegPct < 0;
-                  return (
-                    <>
-                      <circle
-                        cx={toX(worstIdx)} cy={toY(data[worstIdx].depegPct)}
-                        r="6" fill="#ef4444" stroke="#fff" strokeWidth="2"
-                      />
-                      <text
-                        x={toX(worstIdx)}
-                        y={toY(data[worstIdx].depegPct) + (isNegative ? 20 : -12)}
-                        textAnchor="middle" fill="#fca5a5" fontSize="10" fontWeight="bold"
-                      >
-                        {isNegative ? '⚠ Worst Drop: ' : 'Peak: '}{data[worstIdx].depegPct >= 0 ? '+' : ''}{data[worstIdx].depegPct.toFixed(2)}%
-                      </text>
-                    </>
-                  );
+                // Find the worst DISCOUNT (most negative value) - this is the liquidation risk
+                const negativeDepegs = depegValues.filter(v => v < 0);
+                if (negativeDepegs.length > 0) {
+                  const worstDiscount = Math.min(...negativeDepegs); // Most negative
+                  const worstIdx = depegValues.indexOf(worstDiscount);
+                  if (worstIdx >= 0 && worstIdx < data.length) {
+                    return (
+                      <>
+                        <circle
+                          cx={toX(worstIdx)} cy={toY(data[worstIdx].depegPct)}
+                          r="6" fill="#ef4444" stroke="#fff" strokeWidth="2"
+                        />
+                        <text
+                          x={toX(worstIdx)}
+                          y={toY(data[worstIdx].depegPct) + 20}
+                          textAnchor="middle" fill="#fca5a5" fontSize="10" fontWeight="bold"
+                        >
+                          ⚠ Worst Drop: {data[worstIdx].depegPct.toFixed(2)}%
+                        </text>
+                      </>
+                    );
+                  }
                 }
                 return null;
               })()}

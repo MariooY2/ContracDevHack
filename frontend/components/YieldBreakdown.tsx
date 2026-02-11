@@ -67,7 +67,7 @@ export default function YieldBreakdown({ reserveInfo, leverage, exchangeRate }: 
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-[#ef4444]" />
-              <span className="text-sm text-[#94a3b8]">Borrow Interest</span>
+              <span className="text-sm text-[#94a3b8]">WETH Borrow Interest</span>
             </div>
             <div className="text-right">
               <span className="text-sm font-semibold text-[#ef4444]">-{effectiveBorrowCost.toFixed(4)}%</span>

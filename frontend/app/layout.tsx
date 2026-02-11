@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "wstETH Leverage | Aave V3 Flash Loans",
-  description: "Leveraged wstETH positions using Aave V3 flash loans",
+  title: "FlashLev | DeFi Leverage Protocol",
+  description: "Amplify your DeFi positions with flash loan-powered leverage on Aave V3",
 };
 
 export default function RootLayout({

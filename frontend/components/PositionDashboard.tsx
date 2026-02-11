@@ -2,6 +2,7 @@
 
 import { formatEther } from 'viem';
 import type { ReserveInfo } from '@/lib/types';
+import { Loader } from '@/components/Loader';
 
 interface PositionDashboardProps {
   collateralBalance: bigint;
@@ -25,10 +26,12 @@ export default function PositionDashboard({
   collateralBalance, debtBalance, healthFactor, reserveInfo, exchangeRate
 }: PositionDashboardProps) {
   const hasPosition = debtBalance > 0n;
-  const collateral = Number(formatEther(collateralBalance));
-  const debt = Number(formatEther(debtBalance));
-  const equity = collateral - debt;
-  const currentLeverage = equity > 0 ? collateral / equity : 0;
+  const collateral = Number(formatEther(collateralBalance)); // wstETH
+  const debt = Number(formatEther(debtBalance)); // WETH
+  // Cross-asset equity: convert wstETH collateral to ETH terms, then subtract WETH debt
+  const collateralInEth = collateral * exchangeRate;
+  const equity = collateralInEth - debt; // in ETH terms
+  const currentLeverage = equity > 0 ? collateralInEth / equity : 0;
 
   const hfColor = healthFactor > 1.5 ? '#10b981' : healthFactor > 1.1 ? '#f59e0b' : '#ef4444';
 
@@ -55,10 +58,10 @@ export default function PositionDashboard({
       </div>
 
       {!hasPosition ? (
-        <div className="bg-[#111827] rounded-xl p-8 text-center">
-          <p className="text-3xl mb-2">0x</p>
-          <p className="text-[#64748b]">No active leveraged position</p>
-          <p className="text-xs text-[#64748b] mt-1">Open a position to see stats here</p>
+        <div className="bg-[var(--bg-secondary)] p-8 text-center">
+          <p className="text-3xl mb-2 text-[var(--text-muted)]">0x</p>
+          <p className="text-[var(--text-muted)]">No active leveraged position</p>
+          <p className="text-xs text-[var(--text-muted)] mt-1">Open a position to see stats here</p>
         </div>
       ) : (
         <>
@@ -72,13 +75,13 @@ export default function PositionDashboard({
             <StatCard
               label="Debt"
               value={`${debt.toFixed(4)}`}
-              sub="wstETH borrowed"
+              sub="WETH borrowed"
               color="#f59e0b"
             />
             <StatCard
               label="Net Equity"
               value={`${equity.toFixed(4)}`}
-              sub="wstETH"
+              sub="in ETH terms"
               color="#e2e8f0"
             />
             <StatCard
@@ -93,13 +96,13 @@ export default function PositionDashboard({
           <div className="bg-[#111827] rounded-xl p-4">
             <div className="flex justify-between text-xs text-[#64748b] mb-2">
               <span>Debt / Collateral Ratio</span>
-              <span>{((debt / collateral) * 100).toFixed(1)}%</span>
+              <span>{collateralInEth > 0 ? ((debt / collateralInEth) * 100).toFixed(1) : '0.0'}%</span>
             </div>
             <div className="h-3 bg-[#1a2035] rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
-                  width: `${Math.min((debt / collateral) * 100, 100)}%`,
+                  width: `${collateralInEth > 0 ? Math.min((debt / collateralInEth) * 100, 100) : 0}%`,
                   background: `linear-gradient(90deg, #10b981, ${hfColor})`,
                 }}
               />

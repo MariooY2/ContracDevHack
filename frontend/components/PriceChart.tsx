@@ -5,6 +5,7 @@ import { createPublicClient, http, formatEther } from 'viem';
 import { RPC_URL } from '@/lib/types';
 import { WSTETH_ABI, ADDRESSES } from '@/lib/leverageContract';
 import { contractDevMainnet } from '@/lib/wagmi';
+import { CardLoader } from '@/components/Loader';
 
 interface ChartPoint {
   date: string;
@@ -13,16 +14,21 @@ interface ChartPoint {
   market: number;      // actual wstETH/ETH market ratio from CoinGecko
 }
 
-const STAKING_APY = 0.032; // ~3.2% annual
+const DEFAULT_STAKING_APY = 0.032; // Fallback ~3.2% annual
 
 interface PriceChartProps {
   exchangeRate: number;
+  reserveInfo: { stakingYield: number } | null;
 }
 
-export default function PriceChart({ exchangeRate }: PriceChartProps) {
+export default function PriceChart({ exchangeRate, reserveInfo }: PriceChartProps) {
   const [data, setData] = useState<ChartPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const stakingAPY = reserveInfo?.stakingYield
+    ? reserveInfo.stakingYield / 100 // Convert from % to decimal
+    : DEFAULT_STAKING_APY;
 
   useEffect(() => {
     fetchData();
@@ -92,7 +98,7 @@ export default function PriceChart({ exchangeRate }: PriceChartProps) {
 
         // Reconstruct historical intrinsic
         const yearsAgo = (now - ts) / (365.25 * 24 * 3600 * 1000);
-        const growthFactor = Math.pow(1 + STAKING_APY, yearsAgo);
+        const growthFactor = Math.pow(1 + stakingAPY, yearsAgo);
         const historicalIntrinsic = currentIntrinsic / growthFactor;
 
         const date = new Date(ts);
@@ -165,14 +171,11 @@ export default function PriceChart({ exchangeRate }: PriceChartProps) {
         </span>
       </div>
       <p className="text-xs text-[#64748b] mb-4">
-        Intrinsic (stEthPerToken + {STAKING_APY * 100}% APY) vs Market (CoinGecko wstETH/ETH)
+        Intrinsic (stEthPerToken + {(stakingAPY * 100).toFixed(1)}% APY) vs Market (CoinGecko wstETH/ETH)
       </p>
 
       {loading ? (
-        <div className="bg-[#111827] rounded-xl p-12 text-center">
-          <div className="inline-block w-6 h-6 border-2 border-[#3b82f6] border-t-transparent rounded-full animate-spin mb-3" />
-          <p className="text-sm text-[#64748b]">Fetching price history...</p>
-        </div>
+        <CardLoader label="Fetching price history" />
       ) : error ? (
         <div className="bg-[#111827] rounded-xl p-8 text-center">
           <p className="text-sm text-[#ef4444]">{error}</p>

@@ -33,8 +33,8 @@ contract UnwindFlashLoan is Script {
         IERC20(aTokenAddress).approve(helperAddress, type(uint256).max);
         console.log("aToken approved");
 
-        // Step 4: Unwind the position
-        helper.executeDeleverage(WSTETH);
+        // Step 4: Unwind the position (no params needed)
+        helper.executeDeleverage();
         console.log("Position unwound successfully!");
 
         // Step 5: Log final state

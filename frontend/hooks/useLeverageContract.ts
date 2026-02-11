@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react';
 import { useAccount, useWalletClient } from 'wagmi';
 import { parseEther, formatEther, formatUnits, maxUint256, type Address, createPublicClient, http } from 'viem';
 import {
@@ -13,18 +14,17 @@ export function useLeverageContract() {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
 
-  // Create a custom publicClient that ALWAYS uses contract.dev RPC
-  // This bypasses any wallet provider issues with block numbers
-  const publicClient = createPublicClient({
+  // Create a custom publicClient that ALWAYS uses contract.dev RPC (memoized)
+  const publicClient = useMemo(() => createPublicClient({
     chain: contractDevMainnet,
     transport: http(RPC_URL, {
       batch: false,
       retryCount: 3,
     }),
-  });
+  }), []);
 
   // Read user's wstETH wallet balance
-  const getWstethBalance = async () => {
+  const getWstethBalance = useCallback(async () => {
     if (!publicClient || !address) return 0n;
     return publicClient.readContract({
       address: ADDRESSES.WSTETH,
@@ -32,9 +32,9 @@ export function useLeverageContract() {
       functionName: 'balanceOf',
       args: [address],
     });
-  };
+  }, [publicClient, address]);
 
-  // Read user's aToken balance (collateral on Aave)
+  // Read user's aToken balance (wstETH collateral on Aave)
   const getATokenBalance = async () => {
     if (!publicClient || !address) return 0n;
     return publicClient.readContract({
@@ -45,11 +45,11 @@ export function useLeverageContract() {
     });
   };
 
-  // Read user's variable debt balance
+  // Read user's WETH variable debt balance
   const getDebtBalance = async () => {
     if (!publicClient || !address) return 0n;
     return publicClient.readContract({
-      address: ADDRESSES.WSTETH_VARIABLE_DEBT_TOKEN,
+      address: ADDRESSES.WETH_VARIABLE_DEBT_TOKEN,
       abi: VARIABLE_DEBT_TOKEN_ABI,
       functionName: 'balanceOf',
       args: [address],
@@ -75,24 +75,48 @@ export function useLeverageContract() {
     };
   };
 
-  // Get reserve data (APY, LTV, etc.)
+  // Fetch Lido staking APR from API (no fallback - will throw if API fails)
+  const getLidoStakingAPR = async (): Promise<number> => {
+    const response = await fetch('https://eth-api.lido.fi/v1/protocol/steth/apr/sma');
+    if (!response.ok) {
+      throw new Error(`Lido API returned ${response.status}: ${response.statusText}`);
+    }
+    const data = await response.json();
+    return data.data.smaApr;
+  };
+
+  // Get reserve data: wstETH for supply/LTV, WETH for borrow APY
   const getReserveInfo = async () => {
     if (!publicClient) return null;
-    const data = await publicClient.readContract({
-      address: ADDRESSES.AAVE_POOL,
-      abi: AAVE_POOL_ABI,
-      functionName: 'getReserveData',
-      args: [ADDRESSES.WSTETH],
-    });
 
-    const config = data[0];
-    const ltv = Number(config & 0xFFFFn);
-    const liqThreshold = Number((config >> 16n) & 0xFFFFn);
-    const liquidityRate = data[2]; // RAY
-    const variableBorrowRate = data[4]; // RAY
+    // Fetch Lido API staking APR and Aave reserve data in parallel
+    const [wstethData, wethData, stakingYield] = await Promise.all([
+      publicClient.readContract({
+        address: ADDRESSES.AAVE_POOL,
+        abi: AAVE_POOL_ABI,
+        functionName: 'getReserveData',
+        args: [ADDRESSES.WSTETH],
+      }),
+      publicClient.readContract({
+        address: ADDRESSES.AAVE_POOL,
+        abi: AAVE_POOL_ABI,
+        functionName: 'getReserveData',
+        args: [ADDRESSES.WETH],
+      }),
+      getLidoStakingAPR(),
+    ]);
 
-    const supplyAPY = Number(liquidityRate) / Number(RAY) * 100;
-    const borrowAPY = Number(variableBorrowRate) / Number(RAY) * 100;
+    // wstETH reserve: supply APY, LTV, liquidation threshold
+    const wstethConfig = wstethData[0];
+    const ltv = Number(wstethConfig & 0xFFFFn);
+    const liqThreshold = Number((wstethConfig >> 16n) & 0xFFFFn);
+    const wstethLiquidityRate = wstethData[2]; // RAY
+    const supplyAPY = Number(wstethLiquidityRate) / Number(RAY) * 100;
+
+    // WETH reserve: borrow APY
+    const wethVariableBorrowRate = wethData[4]; // RAY
+    const borrowAPY = Number(wethVariableBorrowRate) / Number(RAY) * 100;
+
     const maxLeverage = ltv > 0 ? 10000 / (10000 - ltv * 0.9) : 1;
 
     return {
@@ -101,7 +125,7 @@ export function useLeverageContract() {
       maxLeverage,
       supplyAPY,
       borrowAPY,
-      stakingYield: 3.2, // wstETH native staking yield ~3.2%
+      stakingYield, // Real-time Lido staking APR from API
     };
   };
 
@@ -116,41 +140,39 @@ export function useLeverageContract() {
     return Number(formatEther(rate));
   };
 
-  // Simulate leverage position
-  const simulateLeverage = async (targetLeverage: number, userDeposit: number) => {
+  // Simulate leverage position (new: no asset param, returns cross-asset data)
+  const simulateLeverage = useCallback(async (targetLeverage: number, userDeposit: number) => {
     if (!publicClient) throw new Error('Client not available');
     const result = await publicClient.readContract({
       address: ADDRESSES.LEVERAGE_HELPER,
       abi: LEVERAGE_HELPER_ABI,
       functionName: 'simulateLeverage',
       args: [
-        ADDRESSES.WSTETH,
         parseEther(targetLeverage.toString()),
         parseEther(userDeposit.toString()),
       ],
     });
     return {
-      flashAmount: result[0],
-      premium: result[1],
-      totalCollateral: result[2],
-      totalDebt: result[3],
-      estimatedHealthFactor: Number(formatEther(result[4])),
+      flashWethAmount: result[0],
+      totalCollateral: result[1],  // wstETH
+      totalDebt: result[2],        // WETH
+      estimatedHealthFactor: Number(formatEther(result[3])),
     };
-  };
+  }, [publicClient]);
 
-  // Get max safe leverage
-  const getMaxSafeLeverage = async () => {
+  // Get max safe leverage (no asset param)
+  const getMaxSafeLeverage = useCallback(async () => {
     if (!publicClient) return 3.0;
     const result = await publicClient.readContract({
       address: ADDRESSES.LEVERAGE_HELPER,
       abi: LEVERAGE_HELPER_ABI,
       functionName: 'getMaxSafeLeverage',
-      args: [ADDRESSES.WSTETH],
+      args: [],
     });
     return Number(formatEther(result));
-  };
+  }, [publicClient]);
 
-  // Execute leverage: approve wstETH + approve delegation + execute
+  // Execute leverage: approve wstETH + approve WETH delegation + execute
   const executeLeverage = async (targetLeverage: number, userDeposit: number) => {
     if (!walletClient || !address || !publicClient) {
       throw new Error('Wallet not connected');
@@ -189,7 +211,7 @@ export function useLeverageContract() {
           abi: ERC20_ABI,
           functionName: 'approve',
           args: [ADDRESSES.LEVERAGE_HELPER, maxUint256],
-          gas: 100000n, // Manual gas limit
+          gas: 100000n,
         });
         await publicClient.waitForTransactionReceipt({ hash });
         console.log('wstETH approved');
@@ -197,60 +219,60 @@ export function useLeverageContract() {
         console.log('wstETH already approved');
       }
 
-      // Step 2: Approve credit delegation
-      console.log('Checking delegation allowance...');
+      // Step 2: Approve WETH credit delegation
+      console.log('Checking WETH delegation allowance...');
       const borrowAllowance = await publicClient.readContract({
-        address: ADDRESSES.WSTETH_VARIABLE_DEBT_TOKEN,
+        address: ADDRESSES.WETH_VARIABLE_DEBT_TOKEN,
         abi: VARIABLE_DEBT_TOKEN_ABI,
         functionName: 'borrowAllowance',
         args: [address, ADDRESSES.LEVERAGE_HELPER],
       });
 
-      // Calculate required delegation amount (flashAmount + premium buffer)
-      const requiredDelegation = depositWei * BigInt(Math.floor(targetLeverage * 1.1));
+      // Calculate required delegation amount (buffer for exchange rate)
+      const requiredDelegation = depositWei * BigInt(Math.floor(targetLeverage * 1.5));
 
       if (borrowAllowance < requiredDelegation) {
-        console.log('Approving delegation...');
+        console.log('Approving WETH delegation...');
         const hash = await walletClient.writeContract({
-          address: ADDRESSES.WSTETH_VARIABLE_DEBT_TOKEN,
+          address: ADDRESSES.WETH_VARIABLE_DEBT_TOKEN,
           abi: VARIABLE_DEBT_TOKEN_ABI,
           functionName: 'approveDelegation',
           args: [ADDRESSES.LEVERAGE_HELPER, maxUint256],
-          gas: 100000n, // Manual gas limit
+          gas: 100000n,
         });
         await publicClient.waitForTransactionReceipt({ hash });
-        console.log('Delegation approved');
+        console.log('WETH delegation approved');
       } else {
-        console.log('Delegation already approved');
+        console.log('WETH delegation already approved');
       }
 
-      // Pre-flight check: Verify contract recognizes delegation
-      console.log('Verifying delegation with contract...');
+      // Pre-flight check: Verify contract recognizes WETH delegation
+      console.log('Verifying WETH delegation with contract...');
       const hasDelegation = await publicClient.readContract({
         address: ADDRESSES.LEVERAGE_HELPER,
         abi: LEVERAGE_HELPER_ABI,
         functionName: 'hasSufficientDelegation',
-        args: [address, ADDRESSES.WSTETH, requiredDelegation],
+        args: [address, requiredDelegation],
       });
 
       if (!hasDelegation) {
-        throw new Error('Credit delegation verification failed. Please try approving delegation manually or refresh the page.');
+        throw new Error('WETH credit delegation verification failed. Please try approving delegation manually or refresh the page.');
       }
-      console.log('Delegation verified successfully');
+      console.log('WETH delegation verified successfully');
 
-      // Step 3: Execute leverage
+      // Step 3: Execute leverage (no asset param, minWstethOut = 0 for simplicity)
       console.log('Executing leverage...');
       console.log('Arguments:', {
-        asset: ADDRESSES.WSTETH,
         targetLeverage: leverageWei.toString(),
         userDeposit: depositWei.toString(),
+        minWstethOut: '0',
       });
       const hash = await walletClient.writeContract({
         address: ADDRESSES.LEVERAGE_HELPER,
         abi: LEVERAGE_HELPER_ABI,
         functionName: 'executeLeverage',
-        args: [ADDRESSES.WSTETH, leverageWei, depositWei],
-        gas: 3000000n, // Manual gas limit to avoid estimation issues
+        args: [leverageWei, depositWei, 0n],
+        gas: 3000000n,
       });
 
       // Wait for receipt with better error handling for fork block issues
@@ -258,14 +280,12 @@ export function useLeverageContract() {
       try {
         receipt = await publicClient.waitForTransactionReceipt({
           hash,
-          timeout: 30000, // 30 second timeout
+          timeout: 30000,
         });
         console.log('Leverage executed successfully:', receipt);
       } catch (receiptError: any) {
-        // If we get a block not found error but we have a hash, transaction likely succeeded
         if (receiptError.message?.includes('Block at number') || receiptError.message?.includes('could not be found')) {
           console.warn('Receipt check failed due to block number issue, but transaction was submitted:', hash);
-          // Transaction succeeded, just couldn't verify the receipt due to fork block issues
           receipt = { transactionHash: hash, status: 'success' } as any;
         } else {
           throw receiptError;
@@ -274,11 +294,9 @@ export function useLeverageContract() {
       return receipt;
     } catch (error: any) {
       console.error('ExecuteLeverage error:', error);
-      // Don't show block number errors to user since transaction succeeded
       if (error?.message?.includes('Block at number')) {
         return { transactionHash: 'unknown', status: 'success' } as any;
       }
-      // Re-throw with better error message
       if (error?.message) {
         throw new Error(error.message);
       }
@@ -286,47 +304,44 @@ export function useLeverageContract() {
     }
   };
 
-  // Execute deleverage (unwind)
+  // Execute deleverage (unwind) — no asset param
   const executeDeleverage = async () => {
     if (!walletClient || !address || !publicClient) throw new Error('Wallet not connected');
 
     try {
-      // Step 1: Approve aToken spending
+      // Step 1: Approve aWstETH spending
       const hash1 = await walletClient.writeContract({
         address: ADDRESSES.WSTETH_ATOKEN,
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [ADDRESSES.LEVERAGE_HELPER, maxUint256],
-        gas: 100000n, // Manual gas limit
+        gas: 100000n,
       });
 
       try {
         await publicClient.waitForTransactionReceipt({ hash: hash1, timeout: 30000 });
       } catch (err: any) {
-        // Ignore block not found errors for approval
         if (!err.message?.includes('Block at number')) throw err;
       }
 
-      // Step 2: Execute deleverage
+      // Step 2: Execute deleverage (no params)
       const hash2 = await walletClient.writeContract({
         address: ADDRESSES.LEVERAGE_HELPER,
         abi: LEVERAGE_HELPER_ABI,
         functionName: 'executeDeleverage',
-        args: [ADDRESSES.WSTETH],
-        gas: 3000000n, // Manual gas limit to avoid estimation issues
+        args: [],
+        gas: 3000000n,
       });
 
       try {
         return await publicClient.waitForTransactionReceipt({ hash: hash2, timeout: 30000 });
       } catch (err: any) {
-        // If block not found error, return success anyway
         if (err.message?.includes('Block at number')) {
           return { transactionHash: hash2, status: 'success' } as any;
         }
         throw err;
       }
     } catch (error: any) {
-      // Don't show block number errors to user
       if (error?.message?.includes('Block at number')) {
         return { transactionHash: 'unknown', status: 'success' } as any;
       }
