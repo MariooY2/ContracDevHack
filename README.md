@@ -59,12 +59,13 @@ This platform allows users to amplify their wstETH exposure without requiring ad
 
 ```bash
 git clone <repository-url>
-cd forge-contracts
+cd ContracDevHack
 ```
 
 ### 2. Install Foundry dependencies
 
 ```bash
+cd contracts
 forge install
 ```
 
@@ -79,7 +80,7 @@ yarn install
 
 ### 4. Configure environment variables
 
-Create a `.env` file in the root directory:
+Create a `.env` file in the `contracts/` directory:
 
 ```bash
 # Wallet Configuration
@@ -113,6 +114,7 @@ NEXT_PUBLIC_WSTETH_ADDRESS=0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0
 #### Deploy Flash Loan Helper (if needed)
 
 ```bash
+cd contracts
 forge script script/DeployFlashLoan.s.sol --rpc-url $STAGENET_RPC_URL --broadcast
 ```
 
@@ -121,6 +123,7 @@ forge script script/DeployFlashLoan.s.sol --rpc-url $STAGENET_RPC_URL --broadcas
 Create a 2x leveraged position with 1 wstETH:
 
 ```bash
+cd contracts
 forge script script/ExecuteFlashLoan.s.sol --rpc-url $STAGENET_RPC_URL --broadcast
 ```
 
@@ -153,6 +156,7 @@ cast send 0x932326f46bC4ba386b31B462560f20b5Db5315EB \
 Close your leveraged position:
 
 ```bash
+cd contracts
 forge script script/UnwindFlashLoan.s.sol --rpc-url $STAGENET_RPC_URL --broadcast
 ```
 
@@ -233,12 +237,14 @@ The platform monitors wstETH/ETH premium/discount in real-time:
 ### Running Tests
 
 ```bash
+cd contracts
 forge test
 ```
 
 ### Compiling Contracts
 
 ```bash
+cd contracts
 forge build
 ```
 
