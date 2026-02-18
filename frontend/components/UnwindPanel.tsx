@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { formatEther } from 'viem';
 import { useLeverageContract } from '@/hooks/useLeverageContract';
+import { useProtocol } from '@/contexts/ProtocolContext';
 
 interface UnwindPanelProps {
   debtBalance: bigint;
@@ -14,6 +15,8 @@ interface UnwindPanelProps {
 
 export default function UnwindPanel({ debtBalance, collateralBalance, healthFactor, exchangeRate, onSuccess }: UnwindPanelProps) {
   const { isConnected, executeDeleverage } = useLeverageContract();
+  const { protocol } = useProtocol();
+  const isMorpho = protocol === 'morpho';
   const [executing, setExecuting] = useState(false);
   const [txStatus, setTxStatus] = useState('');
 
@@ -25,15 +28,20 @@ export default function UnwindPanel({ debtBalance, collateralBalance, healthFact
 
   const handleUnwind = async () => {
     setExecuting(true);
-    setTxStatus('Approving aTokens...');
+    setTxStatus(isMorpho ? 'Executing flash loan unwind...' : 'Approving aTokens...');
+
     try {
+      // Empty swap data = contract uses Aerodrome direct swap on Base
+      const lifiSwapData = '';
+
       setTxStatus('Executing flash loan unwind...');
-      await executeDeleverage();
+      await executeDeleverage(lifiSwapData);
       setTxStatus('Position closed!');
       onSuccess();
       setTimeout(() => setTxStatus(''), 3000);
     } catch (err: any) {
-      setTxStatus(`Error: ${err.message?.slice(0, 60)}`);
+      const errorMsg = err.message || err.toString();
+      setTxStatus(`Error: ${errorMsg.slice(0, 60)}`);
     }
     setExecuting(false);
   };
@@ -75,7 +83,7 @@ export default function UnwindPanel({ debtBalance, collateralBalance, healthFact
         </div>
         <div className="flex justify-between">
           <span className="text-sm text-[#94a3b8]">Flash Loan Fee</span>
-          <span className="text-xs text-[#64748b]">~0.05% of debt</span>
+          <span className="text-xs text-[#64748b]">{isMorpho ? 'FREE (0%)' : '~0.05% of debt'}</span>
         </div>
       </div>
 

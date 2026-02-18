@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { createPublicClient, http, formatEther } from 'viem';
 import { RPC_URL } from '@/lib/types';
-import { WSTETH_ABI, ADDRESSES } from '@/lib/leverageContract';
+import { WSTETH_ABI, getAddresses } from '@/lib/leverageContract';
 import { contractDevMainnet } from '@/lib/wagmi';
 import { CardLoader } from '@/components/Loader';
+import { useProtocol } from '@/contexts/ProtocolContext';
 
 interface DepegPoint {
   date: string;
@@ -42,10 +43,12 @@ interface DepegChartProps {
 }
 
 export default function DepegChart({ reserveInfo }: DepegChartProps) {
+  const { protocol } = useProtocol();
   const [data, setData] = useState<DepegPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const ADDRESSES = getAddresses(protocol);
   const lltv = reserveInfo?.liquidationThreshold
     ? reserveInfo.liquidationThreshold / 100
     : DEFAULT_LLTV;
@@ -56,32 +59,41 @@ export default function DepegChart({ reserveInfo }: DepegChartProps) {
 
   useEffect(() => {
     fetchDepegData();
-  }, []);
+  }, [protocol]); // Refetch when protocol changes
 
   const fetchDepegData = async () => {
     setLoading(true);
     setError('');
 
     try {
-      // Step 1: Get current intrinsic value from the fork
-      const client = createPublicClient({
-        chain: contractDevMainnet,
-        transport: http(RPC_URL),
-      });
-
+      // Step 1: Get current intrinsic value (Ethereum only)
       let currentIntrinsic = 1.2265; // fallback
-      try {
-        const raw = await client.readContract({
-          address: ADDRESSES.WSTETH,
-          abi: WSTETH_ABI,
-          functionName: 'stEthPerToken',
-        });
-        currentIntrinsic = Number(formatEther(raw));
-      } catch {}
+
+      if (protocol === 'aave') {
+        // Only try to fetch from contract on Ethereum
+        try {
+          const client = createPublicClient({
+            chain: contractDevMainnet,
+            transport: http(RPC_URL),
+          });
+
+          const raw = await client.readContract({
+            address: ADDRESSES.WSTETH,
+            abi: WSTETH_ABI,
+            functionName: 'stEthPerToken',
+          });
+          currentIntrinsic = Number(formatEther(raw));
+        } catch (e) {
+          console.log('Could not fetch stEthPerToken from Ethereum');
+        }
+      } else {
+        // Morpho/Base: Use fallback
+        console.log('Morpho: Using fallback intrinsic value for depeg chart');
+      }
 
       // Step 2: Fetch historical prices from CoinGecko
       // wstETH and ETH price history in USD
-      const days = 180;
+      const days = 365;
       const [wstethRes, ethRes] = await Promise.all([
         fetch(`https://api.coingecko.com/api/v3/coins/wrapped-steth/market_chart?vs_currency=usd&days=${days}&interval=daily`),
         fetch(`https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=${days}&interval=daily`),
@@ -166,9 +178,6 @@ export default function DepegChart({ reserveInfo }: DepegChartProps) {
   const calculatedMaxLeverage = maxLeverageFromDepeg(maxHistoricalDepeg, SAFETY_BUFFER, lltv);
   const contractMaxLeverage = reserveInfo?.maxLeverage || 1 / (1 - lltv);
   const maxSafeLeverage = Math.min(calculatedMaxLeverage, contractMaxLeverage);
-  const conservativeLev = maxSafeLeverage * 0.6;
-  const moderateLev = maxSafeLeverage * 0.8;
-  const aggressiveLev = maxSafeLeverage;
 
   // Liquidation thresholds at key leverage levels
   const leverageLevels = [
@@ -185,11 +194,19 @@ export default function DepegChart({ reserveInfo }: DepegChartProps) {
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
 
-  // Y-axis: symmetric around 0, include relevant liquidation thresholds
-  const relevantLiq = leverageLevels
+  // Y-axis: focus on actual data range so waves are visible
+  // Add padding around the data but don't stretch to distant liquidation thresholds
+  const dataMax = depegValues.length > 0 ? Math.max(...depegValues) : 1;
+  const dataMin = depegValues.length > 0 ? Math.min(...depegValues) : -1;
+  const dataRange = Math.max(Math.abs(dataMax), Math.abs(dataMin), 0.5);
+  // Include the nearest liquidation threshold if it's within 3x of data range
+  const nearestLiq = leverageLevels
     .map(l => maxDepegAtLeverage(l.leverage, lltv))
-    .filter(v => v < 50);
-  const maxY = Math.max(maxHistoricalDepeg * 2, relevantLiq[1] || 5, 3);
+    .filter(v => v < 50)
+    .sort((a, b) => a - b)[0] || 50;
+  const maxY = nearestLiq < dataRange * 3
+    ? Math.max(dataRange * 1.5, nearestLiq * 1.1)
+    : dataRange * 2.5;
 
   const toX = (i: number) => PAD.left + (i / Math.max(data.length - 1, 1)) * chartW;
   const toY = (v: number) => PAD.top + chartH / 2 - (v / maxY) * (chartH / 2);
@@ -212,8 +229,8 @@ export default function DepegChart({ reserveInfo }: DepegChartProps) {
       + ` L ${toX(data.length - 1)} ${zeroY} L ${toX(0)} ${zeroY} Z`
     : '';
 
-  // Y-axis ticks
-  const yTicks = [-maxY, -maxY / 2, 0, maxY / 2, maxY];
+  // Y-axis ticks - 5 evenly spaced
+  const yTicks = [-maxY, -maxY * 0.5, 0, maxY * 0.5, maxY];
 
   // Calculate risk level
   const getRiskLevel = () => {
@@ -301,18 +318,23 @@ export default function DepegChart({ reserveInfo }: DepegChartProps) {
               {/* Liquidation threshold lines (discount side) */}
               {leverageLevels.map((level) => {
                 const threshold = maxDepegAtLeverage(level.leverage, lltv);
-                if (threshold > maxY) return null;
-                const y = toY(-threshold);
+                // Clamp to chart bottom if threshold is beyond y-axis range
+                const clampedY = threshold > maxY
+                  ? PAD.top + chartH - 2
+                  : toY(-threshold);
+                const isOffChart = threshold > maxY;
                 return (
                   <g key={level.label}>
-                    <line
-                      x1={PAD.left} y1={y} x2={W - PAD.right} y2={y}
-                      stroke={level.color} strokeWidth="1.5" strokeDasharray="8 4" opacity="0.7"
-                    />
-                    <text x={W - PAD.right + 4} y={y + 3} fill={level.color} fontSize="9" fontWeight="bold">
+                    {!isOffChart && (
+                      <line
+                        x1={PAD.left} y1={clampedY} x2={W - PAD.right} y2={clampedY}
+                        stroke={level.color} strokeWidth="1.5" strokeDasharray="8 4" opacity="0.7"
+                      />
+                    )}
+                    <text x={W - PAD.right + 4} y={clampedY + 3} fill={level.color} fontSize="9" fontWeight="bold" opacity={isOffChart ? 0.5 : 1}>
                       {level.label} liq
                     </text>
-                    <text x={W - PAD.right + 4} y={y + 13} fill="#64748b" fontSize="8">
+                    <text x={W - PAD.right + 4} y={clampedY + 13} fill="#64748b" fontSize="8">
                       -{threshold.toFixed(1)}%
                     </text>
                   </g>
@@ -409,7 +431,6 @@ export default function DepegChart({ reserveInfo }: DepegChartProps) {
                 <div className="grid grid-cols-2 gap-1.5">
                   {leverageLevels.map(level => {
                     const threshold = maxDepegAtLeverage(level.leverage, lltv);
-                    if (threshold > maxY) return null;
                     return (
                       <div key={level.label} className="flex items-center gap-1.5">
                         <div className="w-2 h-0.5 rounded" style={{ background: level.color }} />
@@ -471,142 +492,6 @@ export default function DepegChart({ reserveInfo }: DepegChartProps) {
             </div>
           </div>
 
-          {/* Leverage Recommendations - Simplified */}
-          <div className="bg-[#111827] rounded-xl p-5 mt-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-[#e2e8f0]">Choose Your Risk Level</h3>
-              <span className="text-xs text-[#64748b]">Based on historical data</span>
-            </div>
-            <div className="space-y-3">
-              {[
-                {
-                  label: 'Safe & Steady',
-                  sublabel: 'For cautious investors',
-                  pct: '60%',
-                  lev: conservativeLev,
-                  color: '#10b981',
-                  icon: '🛡️'
-                },
-                {
-                  label: 'Balanced',
-                  sublabel: 'Good risk/reward ratio',
-                  pct: '80%',
-                  lev: moderateLev,
-                  color: '#f59e0b',
-                  icon: '⚖️'
-                },
-                {
-                  label: 'Maximum Returns',
-                  sublabel: 'Higher risk, higher yield',
-                  pct: '100%',
-                  lev: aggressiveLev,
-                  color: '#ef4444',
-                  icon: '🚀'
-                },
-              ].map(tier => {
-                const liqDist = maxDepegAtLeverage(tier.lev, lltv);
-                return (
-                  <div
-                    key={tier.label}
-                    className="p-3 rounded-lg border-2 hover:border-opacity-100 transition-all cursor-pointer"
-                    style={{
-                      background: tier.color + '08',
-                      borderColor: tier.color + '40'
-                    }}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{tier.icon}</span>
-                        <div>
-                          <p className="text-sm font-bold text-[#e2e8f0]">{tier.label}</p>
-                          <p className="text-xs text-[#64748b]">{tier.sublabel}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xl font-bold" style={{ color: tier.color }}>
-                          {tier.lev.toFixed(1)}x
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between text-xs mt-2 pt-2 border-t border-[#2a3555]">
-                      <span className="text-[#64748b]">Liquidation if price drops</span>
-                      <span className="font-semibold" style={{ color: tier.color }}>
-                        {liqDist.toFixed(1)}%
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Visual leverage bar */}
-            <div className="mt-4">
-              <div className="flex justify-between text-xs text-[#64748b] mb-1">
-                <span>1x (No leverage)</span>
-                <span>{(1 / (1 - lltv)).toFixed(1)}x (Maximum possible)</span>
-              </div>
-              <div className="h-3 bg-[#1a2035] rounded-full overflow-hidden relative">
-                <div
-                  className="absolute h-full rounded-l-full"
-                  style={{
-                    width: `${Math.min((conservativeLev / (1 / (1 - lltv))) * 100, 100)}%`,
-                    background: 'linear-gradient(90deg, #10b981, #10b98180)',
-                  }}
-                />
-                <div
-                  className="absolute h-full"
-                  style={{
-                    left: `${(conservativeLev / (1 / (1 - lltv))) * 100}%`,
-                    width: `${((moderateLev - conservativeLev) / (1 / (1 - lltv))) * 100}%`,
-                    background: '#f59e0b80',
-                  }}
-                />
-                <div
-                  className="absolute h-full rounded-r-full"
-                  style={{
-                    left: `${(moderateLev / (1 / (1 - lltv))) * 100}%`,
-                    width: `${Math.min(((aggressiveLev - moderateLev) / (1 / (1 - lltv))) * 100, 100 - (moderateLev / (1 / (1 - lltv))) * 100)}%`,
-                    background: '#ef444480',
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Action Recommendation Box */}
-          <div
-            className="mt-4 p-4 rounded-xl border-2"
-            style={{
-              background: riskLevel.color + '08',
-              borderColor: riskLevel.color + '30'
-            }}
-          >
-            <div className="flex items-start gap-3">
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: riskLevel.color + '20' }}
-              >
-                <span className="text-xl">
-                  {riskLevel.level === 'LOW' ? '✅' : riskLevel.level === 'MODERATE' ? '⚠️' : '🚨'}
-                </span>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-[#e2e8f0] mb-1">
-                  {riskLevel.level === 'LOW' && 'Great time to leverage'}
-                  {riskLevel.level === 'MODERATE' && 'Proceed with caution'}
-                  {riskLevel.level === 'HIGH' && 'Consider reducing leverage'}
-                </p>
-                <p className="text-xs text-[#94a3b8] leading-relaxed">
-                  {riskLevel.level === 'LOW' &&
-                    `wstETH has been very stable with minimal price swings. You can comfortably use up to ${maxSafeLeverage.toFixed(1)}x leverage with low liquidation risk.`}
-                  {riskLevel.level === 'MODERATE' &&
-                    `Some price volatility detected in the past ${data.length} days. Stick to ${conservativeLev.toFixed(1)}x-${moderateLev.toFixed(1)}x leverage for safer positions.`}
-                  {riskLevel.level === 'HIGH' &&
-                    `High volatility observed. Consider using lower leverage (max ${conservativeLev.toFixed(1)}x) or waiting for more stable market conditions.`}
-                </p>
-              </div>
-            </div>
-          </div>
         </>
       )}
     </div>

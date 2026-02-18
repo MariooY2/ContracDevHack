@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { createPublicClient, http, formatEther } from 'viem';
 import { RPC_URL } from '@/lib/types';
-import { WSTETH_ABI, ADDRESSES } from '@/lib/leverageContract';
+import { WSTETH_ABI, getAddresses } from '@/lib/leverageContract';
 import { contractDevMainnet } from '@/lib/wagmi';
 import { CardLoader } from '@/components/Loader';
+import { useProtocol } from '@/contexts/ProtocolContext';
 
 interface ChartPoint {
   date: string;
@@ -22,38 +23,49 @@ interface PriceChartProps {
 }
 
 export default function PriceChart({ exchangeRate, reserveInfo }: PriceChartProps) {
+  const { protocol } = useProtocol();
   const [data, setData] = useState<ChartPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const ADDRESSES = getAddresses(protocol);
   const stakingAPY = reserveInfo?.stakingYield
     ? reserveInfo.stakingYield / 100 // Convert from % to decimal
     : DEFAULT_STAKING_APY;
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [protocol]); // Refetch when protocol changes
 
   const fetchData = async () => {
     setLoading(true);
     setError('');
 
     try {
-      // Step 1: Get current intrinsic from fork
-      const client = createPublicClient({
-        chain: contractDevMainnet,
-        transport: http(RPC_URL),
-      });
-
+      // Step 1: Get current intrinsic from fork (Ethereum only)
       let currentIntrinsic = exchangeRate || 1.2265;
-      try {
-        const raw = await client.readContract({
-          address: ADDRESSES.WSTETH,
-          abi: WSTETH_ABI,
-          functionName: 'stEthPerToken',
-        });
-        currentIntrinsic = Number(formatEther(raw));
-      } catch {}
+
+      if (protocol === 'aave') {
+        // Only try to fetch from contract on Ethereum
+        try {
+          const client = createPublicClient({
+            chain: contractDevMainnet,
+            transport: http(RPC_URL),
+          });
+
+          const raw = await client.readContract({
+            address: ADDRESSES.WSTETH,
+            abi: WSTETH_ABI,
+            functionName: 'stEthPerToken',
+          });
+          currentIntrinsic = Number(formatEther(raw));
+        } catch (e) {
+          console.log('Could not fetch stEthPerToken, using exchangeRate prop');
+        }
+      } else {
+        // Morpho/Base: Use the exchangeRate prop
+        console.log('Morpho: Using exchangeRate prop for chart');
+      }
 
       // Step 2: Fetch 180 days of prices from CoinGecko
       const days = 180;

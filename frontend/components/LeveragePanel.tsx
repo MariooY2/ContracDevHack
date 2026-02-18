@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { formatEther } from 'viem';
+import { formatEther, parseEther } from 'viem';
 import { useLeverageContract } from '@/hooks/useLeverageContract';
+import { useProtocol } from '@/contexts/ProtocolContext';
 import { Loader } from '@/components/Loader';
 import type { ReserveInfo } from '@/lib/types';
 
@@ -13,11 +14,13 @@ interface LeveragePanelProps {
 }
 
 export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: LeveragePanelProps) {
-  const { isConnected, getWstethBalance, simulateLeverage, getMaxSafeLeverage, executeLeverage } = useLeverageContract();
+  const { isConnected, getWstethBalance, simulateLeverage, getMaxSafeLeverage, executeLeverage, address } = useLeverageContract();
+  const { protocol } = useProtocol();
+  const isMorpho = protocol === 'morpho';
 
   const [deposit, setDeposit] = useState('1');
   const [leverage, setLeverage] = useState(2.0);
-  const [maxLeverage, setMaxLeverage] = useState(4.0);
+  const [maxLeverage, setMaxLeverage] = useState(isMorpho ? 18.0 : 4.0);
   const [balance, setBalance] = useState('0');
   const [simulation, setSimulation] = useState<{
     flashWethAmount: bigint;
@@ -42,12 +45,19 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
 
       console.log('✅ Balance loaded:', Number(formatEther(bal)).toFixed(4), 'wstETH');
       setBalance(Number(formatEther(bal)).toFixed(4));
-      setMaxLeverage(Math.min(maxLev, 4.5));
+
+      // Protocol-aware max leverage caps
+      // Morpho Blue: 94.5% LTV = 18.18x theoretical, allow up to 18x
+      // Aave: ~78% LTV = 4.5x safe max
+      const safetyCap = isMorpho ? 18.0 : 4.5;
+      setMaxLeverage(Math.min(maxLev, safetyCap));
+
+      console.log(`Max leverage for ${protocol}: ${Math.min(maxLev, safetyCap).toFixed(2)}x (theoretical: ${maxLev.toFixed(2)}x)`);
     } catch (err) {
       console.error('❌ Failed to load balance:', err);
       setBalance('0');
     }
-  }, [isConnected, getWstethBalance, getMaxSafeLeverage]);
+  }, [isConnected, getWstethBalance, getMaxSafeLeverage, isMorpho, protocol]);
 
   useEffect(() => {
     loadData();
@@ -79,13 +89,17 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
   }, [runSimulation]);
 
   const handleExecute = async () => {
-    if (!simulation) return;
+    if (!simulation || !address) return;
     setExecuting(true);
     setShowError(false);
     setTxStatus('Step 1/3: Approving wstETH token...');
+
     try {
-      setTxStatus('Step 2/3: Approving credit delegation...');
-      await executeLeverage(leverage, parseFloat(deposit));
+      // Empty swap data = contract uses Aerodrome direct swap on Base
+      const lifiSwapData = '';
+
+      setTxStatus(isMorpho ? 'Step 2/3: Authorizing Morpho...' : 'Step 2/3: Approving credit delegation...');
+      await executeLeverage(leverage, parseFloat(deposit), lifiSwapData);
       setTxStatus('✅ Position opened successfully!');
       onSuccess();
       setTimeout(() => {
@@ -95,10 +109,10 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
     } catch (err: any) {
       console.error('Leverage execution error:', err);
       const errorMsg = err.message || err.toString();
-      // Extract the actual revert reason if available
       let displayError = 'Transaction failed';
+
       if (errorMsg.includes('Insufficient wstETH balance')) {
-        displayError = errorMsg; // Use the full balance error message
+        displayError = errorMsg;
       } else if (errorMsg.includes('InsufficientDelegation') || errorMsg.includes('delegation')) {
         displayError = 'Credit delegation not approved. Please try again or refresh the page.';
       } else if (errorMsg.includes('InsufficientDeposit')) {
@@ -209,13 +223,13 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
           type="range"
           min="1.1"
           max={maxLeverage}
-          step="0.1"
+          step={isMorpho ? "0.5" : "0.1"}
           value={leverage}
           onChange={(e) => setLeverage(parseFloat(e.target.value))}
         />
         <div className="flex justify-between text-xs text-[#64748b] mt-1">
           <span>1.1x Safe</span>
-          <span>{maxLeverage.toFixed(1)}x Max</span>
+          <span className="text-[var(--accent-primary)] font-semibold">{maxLeverage.toFixed(1)}x Max</span>
         </div>
       </div>
 

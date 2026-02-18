@@ -10,12 +10,15 @@ import YieldBreakdown from '@/components/YieldBreakdown';
 import PriceChart from '@/components/PriceChart';
 import DepegChart from '@/components/DepegChart';
 import { useLeverageContract } from '@/hooks/useLeverageContract';
+import { useProtocol } from '@/contexts/ProtocolContext';
+import ProtocolSwitcher from '@/components/ProtocolSwitcher';
 import { PageLoader } from '@/components/Loader';
 import type { ReserveInfo } from '@/lib/types';
 
 export default function Home() {
+  const { protocol } = useProtocol();
   const {
-    isConnected, getATokenBalance, getDebtBalance, getUserPosition,
+    isConnected, getUserPosition,
     getReserveInfo, getExchangeRate, getWstethBalance,
   } = useLeverageContract();
 
@@ -33,36 +36,57 @@ export default function Home() {
 
   const refreshData = useCallback(async () => {
     try {
-      const [aBalance, dBalance, position, reserve, rate, wBal] = await Promise.all([
-        getATokenBalance(),
-        getDebtBalance(),
-        getUserPosition(),
+      // Fetch reserve info + exchange rate (works without wallet)
+      const [reserve, rate] = await Promise.all([
         getReserveInfo(),
         getExchangeRate(),
-        getWstethBalance(),
       ]);
 
-      setCollateralBalance(aBalance);
-      setDebtBalance(dBalance);
-      setHealthFactor(position?.healthFactor || 0);
-      setReserveInfo(reserve);
+      if (reserve) setReserveInfo(reserve);
       setExchangeRate(rate);
-      setWalletBalance(wBal);
+
+      // Wallet-specific data only when connected
+      if (isConnected) {
+        const [position, wBal] = await Promise.all([
+          getUserPosition(),
+          getWstethBalance(),
+        ]);
+
+        // getUserPosition already returns collateral + debt + healthFactor
+        // No need to call getATokenBalance/getDebtBalance separately
+        if (position) {
+          setCollateralBalance(position.totalCollateralBase);
+          setDebtBalance(position.totalDebtBase);
+          setHealthFactor(position.healthFactor);
+        } else {
+          setCollateralBalance(0n);
+          setDebtBalance(0n);
+          setHealthFactor(0);
+        }
+        setWalletBalance(wBal);
+      }
     } catch (err) {
-      // Try just reserve info and exchange rate (works without wallet)
-      try {
-        const [reserve, rate] = await Promise.all([getReserveInfo(), getExchangeRate()]);
-        if (reserve) setReserveInfo(reserve);
-        setExchangeRate(rate);
-      } catch {}
+      console.error('Error fetching data:', err);
+    } finally {
+      setInitialLoading(false);
     }
-    setInitialLoading(false);
-  }, [isConnected]);
+  }, [isConnected, getReserveInfo, getExchangeRate, getUserPosition, getWstethBalance]);
 
   useEffect(() => {
-    refreshData();
-    const interval = setInterval(refreshData, 15000);
-    return () => clearInterval(interval);
+    let isCancelled = false;
+
+    const fetchData = async () => {
+      if (isCancelled) return;
+      await refreshData();
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 15000);
+
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
   }, [refreshData]);
 
   // Cross-asset leverage: convert wstETH collateral to ETH terms before dividing
@@ -96,22 +120,47 @@ export default function Home() {
 
           <div className="flex items-center gap-4">
             {/* Live Stats */}
-            {reserveInfo && (
-              <div className="hidden md:flex items-center gap-1 text-xs">
-                <div className="stat-chip">
-                  <span className="stat-label">LTV</span>
-                  <span className="stat-value">{reserveInfo.ltv.toFixed(1)}%</span>
+            <div className="hidden md:flex items-center gap-1 text-xs relative">
+              {reserveInfo ? (
+                <>
+                  <div className="stat-chip">
+                    <span className="stat-label">LTV</span>
+                    <span className="stat-value">{reserveInfo.ltv.toFixed(1)}%</span>
+                  </div>
+                  <div className="stat-chip">
+                    <span className="stat-label">Supply</span>
+                    <span className="stat-value text-[var(--accent-success)]">{reserveInfo.supplyAPY.toFixed(3)}%</span>
+                  </div>
+                  <div className="stat-chip">
+                    <span className="stat-label">Borrow</span>
+                    <span className="stat-value text-[var(--accent-warning)]">{reserveInfo.borrowAPY.toFixed(3)}%</span>
+                  </div>
+                  <div className="stat-chip">
+                    <span className="stat-label">Yield</span>
+                    <span className="stat-value text-[var(--accent-primary)]">{reserveInfo.stakingYield}%</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <div className="stat-chip opacity-50">
+                    <span className="stat-label">LTV</span>
+                    <span className="stat-value">--</span>
+                  </div>
+                  <div className="stat-chip opacity-50">
+                    <span className="stat-label">Supply</span>
+                    <span className="stat-value">--</span>
+                  </div>
+                  <div className="stat-chip opacity-50">
+                    <span className="stat-label">Borrow</span>
+                    <span className="stat-value">--</span>
+                  </div>
+                  <div className="stat-chip opacity-50">
+                    <span className="stat-label">Yield</span>
+                    <span className="stat-value">--</span>
+                  </div>
                 </div>
-                <div className="stat-chip">
-                  <span className="stat-label">Borrow</span>
-                  <span className="stat-value text-[var(--accent-warning)]">{reserveInfo.borrowAPY.toFixed(3)}%</span>
-                </div>
-                <div className="stat-chip">
-                  <span className="stat-label">Yield</span>
-                  <span className="stat-value text-[var(--accent-primary)]">{reserveInfo.stakingYield}%</span>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
             <WalletConnect />
           </div>
         </div>
@@ -123,6 +172,9 @@ export default function Home() {
           <PageLoader label="Connecting to Protocol" />
         ) : (
         <>
+        {/* Protocol Switcher */}
+        <ProtocolSwitcher />
+
         {/* Wallet Balance Banner */}
         {mounted && isConnected && (
           <div className="card-glow p-4 mb-8 flex items-center justify-between">
@@ -133,7 +185,11 @@ export default function Home() {
               <div>
                 <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider">Wallet Balance</p>
                 <p className="text-lg font-bold text-[var(--text-primary)]">
-                  {Number(formatEther(walletBalance)).toFixed(4)} <span className="text-[var(--accent-primary)]">wstETH</span>
+                  {walletBalance > 0n ? (
+                    <>{Number(formatEther(walletBalance)).toFixed(4)} <span className="text-[var(--accent-primary)]">wstETH</span></>
+                  ) : (
+                    <span className="opacity-50">0.0000 <span className="text-[var(--accent-primary)]">wstETH</span></span>
+                  )}
                 </p>
               </div>
             </div>
@@ -218,7 +274,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t-2 border-[var(--border)] mt-12">
         <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between text-xs text-[var(--text-muted)] font-mono">
-          <p>FlashLev // Aave V3 Flash Loans</p>
+          <p>FlashLev // {protocol === 'aave' ? 'Aave V3' : 'Morpho Blue'} Flash Loans</p>
           <p className="text-[var(--accent-secondary)]">Use at your own risk</p>
         </div>
       </footer>
