@@ -6,7 +6,7 @@ import "../src/MorphoFlashLoan.sol";
 import "../src/interfaces/IMorpho.sol";
 
 contract TestMorphoLeverage is Script {
-    address constant HELPER = 0x8aC69d6161F64f51eA13A309cd20428F1DB2cF48;
+    address constant HELPER = 0xb4d4Adc7C0e04330C94EA78BE68eC4ECCCbd6588;
     address constant MORPHO_BLUE = 0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb;
     address constant WSTETH = 0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452;
     address constant WETH = 0x4200000000000000000000000000000000000006;
