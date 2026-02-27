@@ -87,17 +87,10 @@ contract ExecuteMorphoFlashLoan is Script {
         }
 
         console.log("\n=== Step 3: Execute Leverage ===");
-        console.log("Note: Using empty LiFi swap data for deployment test");
-        console.log("Production usage requires proper LiFi swap data from frontend");
-
-        // For testing deployment, pass empty bytes
-        // In production, frontend generates proper LiFi swap data
-        bytes memory emptyLifiData = "";
 
         leverageHelper.executeLeverage(
             targetLeverage,
-            depositAmount,
-            emptyLifiData
+            depositAmount
         );
         console.log("Leverage executed successfully!");
 

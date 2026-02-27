@@ -9,11 +9,13 @@ contract DeployMorphoFlashLoan is Script {
     // Base network addresses
     address constant MORPHO_BLUE = 0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb;
     bytes32 constant MARKET_ID = 0x3a4048c64ba1b375330d376b1ce40e4047d03b47ab4d48af484edec9fec801ba;
-    address constant LIFI_DIAMOND = 0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE; // LiFi Diamond proxy
     address constant WETH = 0x4200000000000000000000000000000000000006;
     address constant WSTETH = 0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452;
-    // Aerodrome Router v2 on Base (fallback for direct swaps on fork)
-    address constant AERODROME_ROUTER = 0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43;
+    // Uniswap V3 SwapRouter02 on Base
+    address constant SWAP_ROUTER = 0x2626664c2603336E57B271c5C0b26F421741e481;
+    // Uniswap V3 wstETH/WETH pool on Base (0.01% fee)
+    address constant UNI_POOL = 0x20E068D76f9E90b90604500B84c7e19dCB923e7e;
+    uint24 constant POOL_FEE = 100;
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("STAGENET_PRIVATE_KEY");
@@ -23,7 +25,6 @@ contract DeployMorphoFlashLoan is Script {
         console.log("Deployer:", deployer);
         console.log("Morpho Blue:", MORPHO_BLUE);
         console.log("Market ID:", vm.toString(MARKET_ID));
-        console.log("LiFi Diamond:", LIFI_DIAMOND);
         console.log("WETH:", WETH);
         console.log("wstETH:", WSTETH);
 
@@ -52,10 +53,11 @@ contract DeployMorphoFlashLoan is Script {
             MORPHO_BLUE,
             MARKET_ID,
             params,
-            LIFI_DIAMOND,
             WETH,
             WSTETH,
-            AERODROME_ROUTER
+            SWAP_ROUTER,
+            UNI_POOL,
+            POOL_FEE
         );
 
         vm.stopBroadcast();

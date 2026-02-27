@@ -39,15 +39,9 @@ contract UnwindMorphoFlashLoan is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         console.log("\n=== Executing Deleverage ===");
-        console.log("Note: Using empty LiFi swap data for deployment test");
-        console.log("Production usage requires proper LiFi swap data from frontend");
-
-        // For testing deployment, pass empty bytes
-        // In production, frontend generates proper LiFi swap data
-        bytes memory emptyLifiData = "";
 
         // Note: No need to approve anything - authorization was granted during leverage
-        leverageHelper.executeDeleverage(emptyLifiData);
+        leverageHelper.executeDeleverage();
         console.log("Position unwound successfully!");
 
         vm.stopBroadcast();

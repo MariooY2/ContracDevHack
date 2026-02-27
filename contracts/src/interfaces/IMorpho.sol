@@ -84,13 +84,12 @@ interface IMorpho {
     /// @param assets The amount of collateral to withdraw
     /// @param onBehalf The address to withdraw collateral from
     /// @param receiver The address to receive the withdrawn collateral
-    /// @return assetsWithdrawn The actual amount withdrawn
     function withdrawCollateral(
         MarketParams calldata marketParams,
         uint256 assets,
         address onBehalf,
         address receiver
-    ) external returns (uint256 assetsWithdrawn);
+    ) external;
 
     /// @notice Authorize or deauthorize an address to manage positions on behalf of the caller
     /// @param authorized The address to authorize or deauthorize

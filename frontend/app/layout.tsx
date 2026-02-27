@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FlashLev | DeFi Leverage Protocol",
-  description: "Amplify your DeFi positions with flash loan-powered leverage on Aave V3",
+  title: "VOLT | Flash Leverage Protocol",
+  description: "Amplify your staking yield with flash loan-powered leverage on Morpho Blue",
 };
 
 export default function RootLayout({
