@@ -1,0 +1,80 @@
+{
+  "ethereum": [
+    {
+      "market_id": "0xb323495f7e4148be5643a4ea4a8221eef163e4bccfdedc2a6f4696baacbc86cc",
+      "market_name": "sUSDe/USDC",
+      "lltv": 96.5,
+      "chain": "ethereum",
+      "chain_id": 1,
+      "max_leverage": 25.71,
+      "max_depeg_percentage": 0.18,
+      "theoretical_max_leverage": 28.57,
+      "conservative_leverage": 5.0,
+      "moderate_leverage": 12.0,
+      "aggressive_leverage": 20.0,
+      "health_factor_at_max_leverage": 1.004
+    },
+    {
+      "market_id": "0xe7e9694b754c4d4f7e21faf7223f6fa71abaeb10296a4c43a54a7977149687d2",
+      "market_name": "sDAI/USDC",
+      "lltv": 96.5,
+      "chain": "ethereum",
+      "chain_id": 1,
+      "max_leverage": 22.86,
+      "max_depeg_percentage": 0.32,
+      "theoretical_max_leverage": 28.57,
+      "conservative_leverage": 4.0,
+      "moderate_leverage": 10.0,
+      "aggressive_leverage": 18.0,
+      "health_factor_at_max_leverage": 1.008
+    }
+  ],
+  "base": [
+    {
+      "market_id": "0xdba3ffd12540a25f6dc4b7a13dc7e4c9b4013300ab3e5fa513440b5b77237e94",
+      "market_name": "USDbC/USDC",
+      "lltv": 96.5,
+      "chain": "base",
+      "chain_id": 8453,
+      "max_leverage": 20.0,
+      "max_depeg_percentage": 0.45,
+      "theoretical_max_leverage": 28.57,
+      "conservative_leverage": 3.0,
+      "moderate_leverage": 8.0,
+      "aggressive_leverage": 15.0,
+      "health_factor_at_max_leverage": 1.015
+    }
+  ],
+  "arbitrum": [
+    {
+      "market_id": "0x446079c1a63bee23bf3af3029d13faba7f5781b2d60c8de9ec243b447ea9afb4",
+      "market_name": "sUSDe/USDC",
+      "lltv": 96.5,
+      "chain": "arbitrum",
+      "chain_id": 42161,
+      "max_leverage": 25.71,
+      "max_depeg_percentage": 0.18,
+      "theoretical_max_leverage": 28.57,
+      "conservative_leverage": 5.0,
+      "moderate_leverage": 12.0,
+      "aggressive_leverage": 20.0,
+      "health_factor_at_max_leverage": 1.004
+    }
+  ],
+  "polygon": [
+    {
+      "market_id": "0x7d8e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
+      "market_name": "stMATIC/WMATIC",
+      "lltv": 86.0,
+      "chain": "polygon",
+      "chain_id": 137,
+      "max_leverage": 6.14,
+      "max_depeg_percentage": 2.35,
+      "theoretical_max_leverage": 7.14,
+      "conservative_leverage": 2.5,
+      "moderate_leverage": 4.0,
+      "aggressive_leverage": 5.5,
+      "health_factor_at_max_leverage": 1.028
+    }
+  ]
+}

@@ -525,3 +525,184 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
 }
 .hf-arc-track { stroke: rgba(255,255,255,0.08); }
 .hf-arc-fill { animation: arc-fill 1s ease-out forwards; }
+
+/* ════════════════════════════════════════════
+   MARKET CARD & TIER UTILITIES
+   ════════════════════════════════════════════ */
+
+.chain-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 700;
+  font-family: var(--font-geist-mono), monospace;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text-secondary);
+}
+
+.roe-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 14px; border-radius: 12px;
+  font-family: var(--font-geist-mono), monospace;
+  font-weight: 800; font-size: 16px;
+}
+.roe-badge.positive { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2); color: var(--accent-primary); }
+.roe-badge.negative { background: rgba(255,51,102,0.1); border: 1px solid rgba(255,51,102,0.2); color: var(--accent-secondary); }
+
+.tier-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 8px;
+  font-size: 11px; font-weight: 700;
+  font-family: var(--font-geist-mono), monospace;
+  cursor: default; transition: all 0.2s;
+}
+.tier-pill--conservative { background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.2); color: var(--accent-primary); }
+.tier-pill--moderate { background: rgba(0,194,255,0.08); border: 1px solid rgba(0,194,255,0.2); color: var(--accent-info); }
+.tier-pill--aggressive { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); color: var(--accent-warning); }
+
+.filter-tab {
+  padding: 8px 16px; border-radius: 10px;
+  font-size: 12px; font-weight: 700;
+  font-family: var(--font-geist-mono), monospace;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
+}
+.filter-tab:hover { background: rgba(255,255,255,0.04); border-color: var(--border-bright); }
+.filter-tab.active { background: rgba(0,255,136,0.08); border-color: rgba(0,255,136,0.3); color: var(--accent-primary); }
+
+.breadcrumb {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-family: var(--font-geist-mono), monospace;
+  color: var(--text-muted);
+}
+.breadcrumb a { color: var(--text-secondary); text-decoration: none; transition: color 0.2s; }
+.breadcrumb a:hover { color: var(--accent-primary); }
+
+.strategy-btn {
+  padding: 12px 16px; border-radius: 14px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.03);
+  cursor: pointer; transition: all 0.2s; text-align: center;
+}
+.strategy-btn:hover { border-color: var(--border-bright); background: rgba(255,255,255,0.05); }
+.strategy-btn.selected { border-color: rgba(0,255,136,0.4); background: rgba(0,255,136,0.06); box-shadow: 0 0 20px rgba(0,255,136,0.08); }
+
+/* ════════════════════════════════════════════
+   TICKER TAPE MARQUEE
+   ════════════════════════════════════════════ */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-tape {
+  position: relative;
+  overflow: hidden;
+  padding: 10px 0;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.ticker-content {
+  display: flex;
+  gap: 24px;
+  white-space: nowrap;
+  animation: ticker-scroll 30s linear infinite;
+  width: max-content;
+}
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-family: var(--font-geist-mono), monospace;
+  cursor: pointer;
+  padding: 2px 0;
+  transition: opacity 0.2s;
+}
+.ticker-item:hover { opacity: 0.7; }
+.ticker-fade-left,
+.ticker-fade-right {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 40px;
+  z-index: 2;
+  pointer-events: none;
+}
+.ticker-fade-left {
+  left: 0;
+  background: linear-gradient(90deg, var(--bg-primary), transparent);
+}
+.ticker-fade-right {
+  right: 0;
+  background: linear-gradient(270deg, var(--bg-primary), transparent);
+}
+
+/* ════════════════════════════════════════════
+   SCAN LINE EFFECT (hero)
+   ════════════════════════════════════════════ */
+@keyframes scan-line-move {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(200%); }
+}
+.scan-line-container .scan-line {
+  width: 100%;
+  height: 40px;
+  background: linear-gradient(180deg, transparent, rgba(0,255,136,0.04), transparent);
+  animation: scan-line-move 4s ease-in-out infinite;
+}
+
+/* ════════════════════════════════════════════
+   PERSPECTIVE CARD (3D tilt on hover)
+   ════════════════════════════════════════════ */
+.perspective-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transform-style: preserve-3d;
+}
+.perspective-card:hover {
+  transform: perspective(800px) rotateY(2deg) rotateX(-1deg) translateY(-2px);
+}
+
+/* ════════════════════════════════════════════
+   GLOW PULSE (for highlighted stats)
+   ════════════════════════════════════════════ */
+@keyframes glow-pulse-anim {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.15); }
+  50% { box-shadow: 0 0 12px 2px rgba(0,255,136,0.1); }
+}
+.glow-pulse { animation: glow-pulse-anim 3s ease-in-out infinite; }
+
+/* ════════════════════════════════════════════
+   ENHANCED CARD HOVER
+   ════════════════════════════════════════════ */
+.card-glow:hover {
+  border-color: rgba(0,255,136,0.25);
+  box-shadow: 0 0 50px rgba(0,255,136,0.06), 0 24px 64px rgba(0,0,0,0.5);
+  transform: translateY(-2px);
+}
+
+/* ════════════════════════════════════════════
+   FOOTER
+   ════════════════════════════════════════════ */
+.footer-gradient-border {
+  background: linear-gradient(90deg, transparent 0%, rgba(0,255,136,0.15) 30%, rgba(0,194,255,0.1) 70%, transparent 100%);
+  height: 1px;
+}
+
+/* ════════════════════════════════════════════
+   SMOOTH SCROLLBAR
+   ════════════════════════════════════════════ */
+html { scroll-behavior: smooth; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,255,136,0.3); }
+
+/* ════════════════════════════════════════════
+   FOCUS / INTERACTIVE STATES
+   ════════════════════════════════════════════ */
+a:focus-visible, button:focus-visible {
+  outline: 2px solid rgba(0,255,136,0.5);
+  outline-offset: 2px;
+  border-radius: 8px;
+}

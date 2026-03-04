@@ -1,0 +1,220 @@
+{
+  "timestamp": "2026-03-01T00:44:35.450Z",
+  "rates": [
+    {
+      "token": "wstETH",
+      "apy_7d": 2.36,
+      "apy_30d": 2.48,
+      "type": "Liquid Staking",
+      "rate": 1.228123223457619,
+      "source": "Lido"
+    },
+    {
+      "token": "cbETH",
+      "apy_7d": 2.62,
+      "apy_30d": 2.81,
+      "type": "Liquid Staking",
+      "rate": 1.1242180704031435,
+      "source": "Coinbase"
+    },
+    {
+      "token": "rETH",
+      "apy_7d": 2.08,
+      "apy_30d": 2.24,
+      "type": "Liquid Staking",
+      "rate": 1.1584591818264272,
+      "source": "RocketPool"
+    },
+    {
+      "token": "LsETH",
+      "apy_7d": 2.55,
+      "apy_30d": 2.82,
+      "type": "Liquid Staking",
+      "rate": 1.1034619756106498,
+      "source": "Liquid Collective"
+    },
+    {
+      "token": "weETH",
+      "apy_7d": 2.59,
+      "apy_30d": 2.64,
+      "type": "Liquid Restaking",
+      "rate": 1.0892954436234763,
+      "source": "EtherFi",
+      "rewardsApy": 0.09199427242167706
+    },
+    {
+      "token": "ezETH",
+      "apy_7d": 2.57,
+      "apy_30d": 2.73,
+      "type": "Liquid Restaking",
+      "rate": 1.0729804572832544,
+      "source": "Renzo"
+    },
+    {
+      "token": "rsETH",
+      "apy_7d": 2.09,
+      "apy_30d": 2.47,
+      "type": "Liquid Restaking",
+      "rate": 1.065972309112358,
+      "source": "Kelp DAO"
+    },
+    {
+      "token": "pufETH",
+      "apy_7d": 0.43,
+      "apy_30d": 2.62,
+      "type": "Liquid Restaking",
+      "rate": 1.0697733309149626,
+      "source": "Puffer Finance"
+    },
+    {
+      "token": "rswETH",
+      "apy_7d": 3.2,
+      "apy_30d": 3.2,
+      "type": "Liquid Restaking",
+      "source": "Swell"
+    },
+    {
+      "token": "agETH",
+      "apy_7d": 0.34,
+      "apy_30d": 2.14,
+      "type": "Liquid Restaking",
+      "rate": 0.9990715650181308,
+      "source": "Kelp DAO"
+    },
+    {
+      "token": "OETH",
+      "apy_7d": 2.64,
+      "apy_30d": 2.68,
+      "type": "Yield ETH",
+      "rate": 1.1528461079846086,
+      "source": "Origin Protocol"
+    },
+    {
+      "token": "ynETHx",
+      "apy_7d": 1.79,
+      "apy_30d": 1.47,
+      "type": "Liquid Restaking",
+      "rate": 1.070011342232053,
+      "source": "YieldNest"
+    },
+    {
+      "token": "hgETH",
+      "apy_7d": 2.24,
+      "apy_30d": 1.62,
+      "type": "Yield ETH",
+      "rate": 1.0350089086185794,
+      "source": "High Growth ETH"
+    },
+    {
+      "token": "ETH+",
+      "apy_7d": 3,
+      "apy_30d": 3,
+      "type": "Yield ETH",
+      "source": "Reserve Protocol"
+    },
+    {
+      "token": "savETH",
+      "apy_7d": 5.85,
+      "apy_30d": 5.83,
+      "type": "Yield ETH",
+      "rate": 1.0300566768079962,
+      "source": "Stakehouse"
+    },
+    {
+      "token": "wbrETH",
+      "apy_7d": 3,
+      "apy_30d": 3,
+      "type": "Yield ETH",
+      "source": "Bracket Finance"
+    },
+    {
+      "token": "ETH0",
+      "apy_7d": 3,
+      "apy_30d": 3,
+      "type": "Yield ETH",
+      "source": "Infrared / Usual"
+    },
+    {
+      "token": "sUSDe",
+      "apy_7d": 3.62,
+      "apy_30d": 3.74,
+      "type": "Staked Stablecoin",
+      "rate": 1.2220862318354189,
+      "source": "Ethena"
+    },
+    {
+      "token": "sDAI",
+      "apy_7d": 1.25,
+      "apy_30d": 1.25,
+      "type": "Savings Token",
+      "rate": 1.1726095869316961,
+      "source": "MakerDAO"
+    },
+    {
+      "token": "sUSDS",
+      "apy_7d": 4,
+      "apy_30d": 4,
+      "type": "Savings Token",
+      "rate": 1.0882403467019133,
+      "source": "Sky (MakerDAO)"
+    },
+    {
+      "token": "sUSDf",
+      "apy_7d": 5.69,
+      "apy_30d": 6.25,
+      "type": "Staked Stablecoin",
+      "rate": 1.1029676950889036,
+      "source": "Falcon Finance"
+    },
+    {
+      "token": "wstUSR",
+      "apy_7d": 2.85,
+      "apy_30d": 1.62,
+      "type": "Staked Stablecoin",
+      "rate": 1.1312214889993797,
+      "source": "Resolv"
+    },
+    {
+      "token": "wsrUSD",
+      "apy_7d": 4.81,
+      "apy_30d": 5.26,
+      "type": "Staked Stablecoin",
+      "rate": 1.0696493507018054,
+      "source": "Resolv"
+    },
+    {
+      "token": "syrupUSDC",
+      "apy_7d": 4.57,
+      "apy_30d": 4.71,
+      "type": "Lending Vault",
+      "rate": 1.1535962978557748,
+      "source": "Maple Finance"
+    },
+    {
+      "token": "superOETHb",
+      "apy_7d": 2.56,
+      "apy_30d": 2.51,
+      "type": "Yield ETH",
+      "rate": 1.0921860521440265,
+      "source": "Origin Protocol",
+      "chain": "base"
+    },
+    {
+      "token": "yoETH",
+      "apy_7d": 1.64,
+      "apy_30d": 1.41,
+      "type": "Yield ETH",
+      "rate": 1.0788849034601387,
+      "source": "YO Protocol",
+      "chain": "base"
+    },
+    {
+      "token": "bsdETH",
+      "apy_7d": 3.5,
+      "apy_30d": 3.5,
+      "type": "Yield ETH",
+      "source": "Based ETH",
+      "chain": "base"
+    }
+  ]
+}

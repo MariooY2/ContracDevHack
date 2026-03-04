@@ -1,0 +1,20 @@
+{
+  "name": "token-rates",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "refresh": "tsx src/cli.ts",
+    "refresh:verbose": "tsx src/cli.ts --verbose"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "dotenv": "^16.4.5",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  }
+}

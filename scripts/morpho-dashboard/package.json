@@ -1,0 +1,24 @@
+{
+  "name": "morpho-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "refresh": "tsx src/cli.ts run --json",
+    "refresh:excel": "tsx src/cli.ts run --json --excel",
+    "refresh:ethereum": "tsx src/cli.ts run --chain=ethereum --json",
+    "refresh:base": "tsx src/cli.ts run --chain=base --json",
+    "refresh:arbitrum": "tsx src/cli.ts run --chain=arbitrum --json",
+    "refresh:polygon": "tsx src/cli.ts run --chain=polygon --json"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "dotenv": "^16.4.5",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  }
+}

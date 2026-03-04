@@ -1,0 +1,122 @@
+{
+  "ethereum": [
+    {
+      "market_id": "0xc54d7acf14de29e0e5527cabd7a576506870346a78a11a6762e2cca66322ec41",
+      "market_name": "wstETH/WETH",
+      "lltv": 94.5,
+      "chain": "ethereum",
+      "chain_id": 1,
+      "max_leverage": 16.54,
+      "max_depeg_percentage": 0.48,
+      "theoretical_max_leverage": 18.18,
+      "conservative_leverage": 5.0,
+      "moderate_leverage": 10.0,
+      "aggressive_leverage": 15.0,
+      "health_factor_at_max_leverage": 1.006
+    },
+    {
+      "market_id": "0xd0b3c659f4dc1872f096159e12399e443e0c57d0b57e87cb78cd8f5709e25df7",
+      "market_name": "weETH/WETH",
+      "lltv": 94.5,
+      "chain": "ethereum",
+      "chain_id": 1,
+      "max_leverage": 15.89,
+      "max_depeg_percentage": 0.72,
+      "theoretical_max_leverage": 18.18,
+      "conservative_leverage": 4.5,
+      "moderate_leverage": 9.0,
+      "aggressive_leverage": 14.0,
+      "health_factor_at_max_leverage": 1.012
+    },
+    {
+      "market_id": "0xa921ef34e2fc7a27cdb2b0f1e4d5f53e78df18afb57c61543ee851a5d863b256",
+      "market_name": "cbETH/WETH",
+      "lltv": 94.5,
+      "chain": "ethereum",
+      "chain_id": 1,
+      "max_leverage": 14.22,
+      "max_depeg_percentage": 1.15,
+      "theoretical_max_leverage": 18.18,
+      "conservative_leverage": 4.0,
+      "moderate_leverage": 8.0,
+      "aggressive_leverage": 12.0,
+      "health_factor_at_max_leverage": 1.025
+    }
+  ],
+  "base": [
+    {
+      "market_id": "0x3a4048c64ba1b375330d376b1ce40e4047d03b47ab4d48af484edec9fec801ba",
+      "market_name": "wstETH/WETH",
+      "lltv": 94.5,
+      "chain": "base",
+      "chain_id": 8453,
+      "max_leverage": 16.54,
+      "max_depeg_percentage": 0.48,
+      "theoretical_max_leverage": 18.18,
+      "conservative_leverage": 5.0,
+      "moderate_leverage": 10.0,
+      "aggressive_leverage": 15.0,
+      "health_factor_at_max_leverage": 1.006
+    },
+    {
+      "market_id": "0x8793cf302b8ffd655ab97bd1c695dbd967807e8367a65cb2f4edaf1380ba1bda",
+      "market_name": "cbETH/WETH",
+      "lltv": 94.5,
+      "chain": "base",
+      "chain_id": 8453,
+      "max_leverage": 14.22,
+      "max_depeg_percentage": 1.15,
+      "theoretical_max_leverage": 18.18,
+      "conservative_leverage": 4.0,
+      "moderate_leverage": 8.0,
+      "aggressive_leverage": 12.0,
+      "health_factor_at_max_leverage": 1.025
+    }
+  ],
+  "arbitrum": [
+    {
+      "market_id": "0xb8fc70e82bc5bb53e773626fcc6a23f7eefa036918d7ef216ecfb1950a94a85e",
+      "market_name": "wstETH/WETH",
+      "lltv": 94.5,
+      "chain": "arbitrum",
+      "chain_id": 42161,
+      "max_leverage": 16.54,
+      "max_depeg_percentage": 0.48,
+      "theoretical_max_leverage": 18.18,
+      "conservative_leverage": 5.0,
+      "moderate_leverage": 10.0,
+      "aggressive_leverage": 15.0,
+      "health_factor_at_max_leverage": 1.006
+    },
+    {
+      "market_id": "0x138eec0e4a1937eb92ebc70043ed539661dd7ed5a89fb92a720b341650288a40",
+      "market_name": "weETH/WETH",
+      "lltv": 94.5,
+      "chain": "arbitrum",
+      "chain_id": 42161,
+      "max_leverage": 15.89,
+      "max_depeg_percentage": 0.72,
+      "theoretical_max_leverage": 18.18,
+      "conservative_leverage": 4.5,
+      "moderate_leverage": 9.0,
+      "aggressive_leverage": 14.0,
+      "health_factor_at_max_leverage": 1.012
+    }
+  ],
+  "polygon": [
+    {
+      "market_id": "0x9eb3cdab2489c4f2c9a0236b7f4e6a5d8b2c1a0e9d8c7b6a5f4e3d2c1b0a9e8",
+      "market_name": "wstETH/WETH",
+      "lltv": 94.5,
+      "chain": "polygon",
+      "chain_id": 137,
+      "max_leverage": 16.54,
+      "max_depeg_percentage": 0.48,
+      "theoretical_max_leverage": 18.18,
+      "conservative_leverage": 5.0,
+      "moderate_leverage": 10.0,
+      "aggressive_leverage": 15.0,
+      "health_factor_at_max_leverage": 1.006
+    }
+  ]
+}
