@@ -1,184 +1,105 @@
-# wstETH Leverage Platform
+# VOLT Protocol
 
-A decentralized leverage trading platform built on Aave V3, enabling users to achieve up to 2x leverage on wstETH positions using flash loans.
+A DeFi leverage platform built on Morpho Blue, enabling users to take leveraged positions on yield-bearing assets using flash loans with on-chain oracle depeg risk analysis.
 
 ## Overview
 
-This platform allows users to amplify their wstETH exposure without requiring additional capital upfront. By utilizing Aave V3's flash loan functionality, users can:
+VOLT Protocol allows users to amplify their exposure to yield-bearing tokens (LSTs, LRTs, stablecoins) across multiple chains. The platform combines flash loan leverage with real-time oracle depeg monitoring to recommend safe leverage levels.
 
-- **Leverage Up**: Execute 2x leveraged positions on wstETH in a single transaction
-- **Monitor Risk**: Real-time risk assessment based on wstETH/ETH premium/discount
-- **Unwind Safely**: Close leveraged positions and return to base asset
+**Key Features:**
 
-## Features
-
-- ⚡ Flash loan-based leverage (no upfront capital needed)
-- 📊 Real-time depeg risk monitoring with visual charts
-- 🎯 User-friendly leverage recommendations (Safe & Steady, Balanced, Maximum Returns)
-- 🔐 Non-custodial (contracts interact directly with Aave V3)
-- 🎨 Brutalist terminal-style UI
-- 📱 Wallet integration (MetaMask, WalletConnect, etc.)
+- Flash loan leverage on Morpho Blue markets (Base, Ethereum, Arbitrum)
+- On-chain oracle vs intrinsic depeg analysis across 180 days of history
+- Data-driven leverage recommendations based on historical depeg risk
+- Multi-chain market discovery with real-time APY tracking
+- Smart account support with ERC-4337 batched transactions
 
 ## Architecture
 
 ### Smart Contracts (Foundry)
-- **FlashLoanLeverageHelper**: Core contract handling flash loan execution, leverage, and deleveraging
-- **Aave V3 Integration**: Utilizes credit delegation and flash loans on Ethereum mainnet
+
+- **MorphoFlashLoan.sol** — Core contract handling flash loan leverage/deleverage via Morpho Blue
+- **Aerodrome SlipStream CL** — Swap routing through concentrated liquidity pools
+- Deployed on Base fork (Chain ID: 18133)
 
 ### Frontend (Next.js)
-- React + TypeScript + TailwindCSS
-- Wagmi + Viem for web3 interactions
-- Real-time position tracking and risk assessment
+
+- **Market Explorer** — Browse Morpho Blue markets across chains with APY, utilization, and depeg data
+- **Depeg Analysis** — Oracle vs intrinsic price charts with liquidation threshold overlays
+- **Strategy Panel** — Leverage/deleverage execution with risk-aware recommendations
+- **Cron Jobs** — Automated market data, token rates, and depeg history refresh
+
+### Data Pipeline
+
+```
+On-chain RPCs (Alchemy)
+    |
+    v
+Cron Endpoints (/api/cron/*)
+    |-- refresh-markets:  Morpho Blue GraphQL -> Supabase
+    |-- refresh-rates:    Token exchange rates (stEthPerToken, ERC4626, etc.)
+    |-- refresh-analysis: Oracle price() vs intrinsic rate -> depeg history
+    |
+    v
+Supabase (morpho_data, oracle_depeg_history)
+    |
+    v
+Frontend (Zustand store, SVG charts)
+```
 
 ## Tech Stack
 
 **Smart Contracts:**
-- Solidity ^0.8.20
-- Foundry (forge, cast)
-- OpenZeppelin Contracts
-- Aave V3 Protocol
+- Solidity ^0.8.20, Foundry
+- Morpho Blue, Aerodrome SlipStream CL
 
 **Frontend:**
-- Next.js 15
-- React 19
-- TypeScript
-- Wagmi v2
-- Viem
-- TailwindCSS
-- Recharts
+- Next.js 16, React 19, TypeScript
+- Wagmi v2, Viem, RainbowKit
+- Tailwind v4, Framer Motion
+- Zustand v5 (state management)
+- Supabase (data persistence)
 
-## Prerequisites
+## Getting Started
+
+### Prerequisites
 
 - Node.js 18+
 - Foundry ([installation guide](https://book.getfoundry.sh/getting-started/installation))
-- A wallet with ETH on contract.dev network
 
-## Installation
-
-### 1. Clone the repository
+### Installation
 
 ```bash
 git clone <repository-url>
 cd ContracDevHack
+
+# Smart contracts
+cd contracts && forge install
+
+# Frontend
+cd ../frontend && npm install
 ```
 
-### 2. Install Foundry dependencies
+### Environment Variables
+
+Create `frontend/.env`:
 
 ```bash
-cd contracts
-forge install
-```
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=<your-supabase-url>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=<your-supabase-key>
 
-### 3. Install Frontend dependencies
+# RPC (Alchemy recommended for archive state)
+ETHEREUM_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/<key>
+BASE_RPC_URL=https://base-mainnet.g.alchemy.com/v2/<key>
+ARBITRUM_RPC_URL=https://arb-mainnet.g.alchemy.com/v2/<key>
 
-```bash
-cd frontend
-npm install
-# or
-yarn install
-```
-
-### 4. Configure environment variables
-
-Create a `.env` file in the `contracts/` directory:
-
-```bash
-# Wallet Configuration
-STAGENET_PRIVATE_KEY=<your-private-key>
-STAGENET_RPC_URL=https://rpc.contract.dev/<your-api-key>
-
-# Deployed Contracts
-FLASH_LOAN_HELPER=0x932326f46bC4ba386b31B462560f20b5Db5315EB
-
-# Network Configuration
-CHAIN_ID=13957
-
-# Morpho API
-MORPHO_API_URL=https://blue-api.morpho.org/graphql
-```
-
-Create a `frontend/.env.local` file:
-
-```bash
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=<your-walletconnect-project-id>
+# Wallet
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=<your-project-id>
 NEXT_PUBLIC_RPC_URL=https://rpc.contract.dev/<your-api-key>
-NEXT_PUBLIC_CHAIN_ID=13957
-NEXT_PUBLIC_LEVERAGE_HELPER_ADDRESS=0x932326f46bC4ba386b31B462560f20b5Db5315EB
-NEXT_PUBLIC_WSTETH_ADDRESS=0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0
 ```
 
-## Usage
-
-### Smart Contract Scripts
-
-#### Deploy Flash Loan Helper (if needed)
-
-```bash
-cd contracts
-forge script script/DeployFlashLoan.s.sol --rpc-url $STAGENET_RPC_URL --broadcast
-```
-
-#### Execute Leverage Position
-
-Create a 2x leveraged position with 1 wstETH:
-
-```bash
-cd contracts
-forge script script/ExecuteFlashLoan.s.sol --rpc-url $STAGENET_RPC_URL --broadcast
-```
-
-Or using cast:
-
-```bash
-# 1. Approve credit delegation
-cast send <VARIABLE_DEBT_TOKEN> "approveDelegation(address,uint256)" \
-  0x932326f46bC4ba386b31B462560f20b5Db5315EB \
-  115792089237316195423570985008687907853269984665640564039457584007913129639935 \
-  --rpc-url $STAGENET_RPC_URL --private-key $STAGENET_PRIVATE_KEY
-
-# 2. Approve wstETH
-cast send 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0 "approve(address,uint256)" \
-  0x932326f46bC4ba386b31B462560f20b5Db5315EB \
-  115792089237316195423570985008687907853269984665640564039457584007913129639935 \
-  --rpc-url $STAGENET_RPC_URL --private-key $STAGENET_PRIVATE_KEY
-
-# 3. Execute 2x leverage on 1 wstETH
-cast send 0x932326f46bC4ba386b31B462560f20b5Db5315EB \
-  "executeLeverage(address,uint256,uint256)" \
-  0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0 \
-  2000000000000000000 \
-  1000000000000000000 \
-  --rpc-url $STAGENET_RPC_URL --private-key $STAGENET_PRIVATE_KEY
-```
-
-#### Unwind Leverage Position
-
-Close your leveraged position:
-
-```bash
-cd contracts
-forge script script/UnwindFlashLoan.s.sol --rpc-url $STAGENET_RPC_URL --broadcast
-```
-
-Or using cast:
-
-```bash
-# 1. Approve aToken spending
-cast send <A_WSTETH_TOKEN> "approve(address,uint256)" \
-  0x932326f46bC4ba386b31B462560f20b5Db5315EB \
-  115792089237316195423570985008687907853269984665640564039457584007913129639935 \
-  --rpc-url $STAGENET_RPC_URL --private-key $STAGENET_PRIVATE_KEY
-
-# 2. Execute deleverage
-cast send 0x932326f46bC4ba386b31B462560f20b5Db5315EB \
-  "executeDeleverage(address)" \
-  0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0 \
-  --rpc-url $STAGENET_RPC_URL --private-key $STAGENET_PRIVATE_KEY
-```
-
-### Frontend Application
-
-#### Development
+### Running
 
 ```bash
 cd frontend
@@ -187,107 +108,52 @@ npm run dev
 
 Visit [http://localhost:3000](http://localhost:3000)
 
-#### Production Build
+### Data Refresh
+
+Populate market data and depeg history:
 
 ```bash
-npm run build
-npm start
+# 1. Fetch markets from Morpho Blue GraphQL
+curl http://localhost:3000/api/cron/refresh-markets
+
+# 2. Fetch on-chain token APYs
+curl http://localhost:3000/api/cron/refresh-rates
+
+# 3. Run oracle depeg analysis (180-day backfill on first run)
+curl http://localhost:3000/api/cron/refresh-analysis
 ```
 
-## How It Works
+## Oracle Depeg Analysis
 
-### Leverage Execution Flow
+The core risk engine compares Morpho oracle prices against on-chain intrinsic token values:
 
-1. **User Deposits**: User approves and deposits initial wstETH collateral
-2. **Credit Delegation**: User delegates borrowing rights to the helper contract
-3. **Flash Loan**: Helper contract takes a flash loan of wstETH from Aave V3
-4. **Supply to Aave**: Flash loaned wstETH is supplied as collateral to user's Aave position
-5. **Borrow on Behalf**: Helper borrows wstETH using delegated credit on behalf of the user
-6. **Repay Flash Loan**: Borrowed wstETH repays the flash loan
-7. **Result**: User has a leveraged position (e.g., 2x exposure)
-
-### Deleverage Execution Flow
-
-1. **Approve aTokens**: User approves helper to withdraw their collateral
-2. **Flash Loan**: Helper takes a flash loan to repay user's debt
-3. **Repay Debt**: Flash loaned funds repay user's variable debt
-4. **Withdraw Collateral**: Helper withdraws user's collateral from Aave
-5. **Repay Flash Loan**: Withdrawn collateral repays the flash loan
-6. **Return Remainder**: Remaining wstETH is returned to user's wallet
-
-### Risk Monitoring
-
-The platform monitors wstETH/ETH premium/discount in real-time:
-
-- **Safe Zone** (<2% discount): Low risk, leverage recommended
-- **Moderate Risk** (2-5% discount): Caution advised
-- **High Risk** (>5% discount): Consider unwinding position
-
-## Deployed Addresses
-
-### Contract.dev Mainnet Fork (Chain ID: 13957)
-
-- **FlashLoanLeverageHelper**: `0x932326f46bC4ba386b31B462560f20b5Db5315EB`
-- **wstETH**: `0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0`
-- **Aave V3 Pool**: `0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2`
-- **Aave Data Provider**: `0x0a16f2FCC0D44FaE41cc54e079281D84A363bECD`
-
-## Development
-
-### Running Tests
-
-```bash
-cd contracts
-forge test
+```
+oracle_exchange_rate = Morpho.price() / 10^(36 + loanDec - collateralDec)
+true_intrinsic_rate  = collateral.stEthPerToken() / loan.stEthPerToken()
+depeg = (oracle_exchange_rate / true_intrinsic_rate - 1) * 100
 ```
 
-### Compiling Contracts
+Supported intrinsic rate methods:
+- **LSTs**: wstETH, cbETH, rETH, LsETH (exchange rate functions)
+- **LRTs**: weETH, rsETH, ezETH, pufETH, agETH, rswETH (ERC4626, custom oracles)
+- **Yield ETH**: OETH, superOETHb, ETH0 (rebasing), hgETH, yoETH (ERC4626)
+- **Stablecoins**: sUSDe, sDAI, sUSDS, sUSDf, syrupUSDC (ERC4626)
 
-```bash
-cd contracts
-forge build
-```
+## Deployed Contracts
 
-### Linting Frontend
+### Base Fork (Chain ID: 18133)
 
-```bash
-cd frontend
-npm run lint
-```
+- **MorphoFlashLoan Helper**: `0x8a7056d943E66fecA6b87978Cc591d8FdDe239Cf`
+- **Morpho Market**: `0x3a4048c64ba1b375330d376b1ce40e4047d03b47ab4d48af484edec9fec801ba`
+- **SlipStream CL Router**: `0xBE6D8f0d05cC4be24d5167a3eF062215bE6D18a5`
 
-## Security Considerations
+## Security
 
-⚠️ **Important Notes:**
-
-- This is experimental software. Use at your own risk.
-- Flash loans carry liquidation risk if wstETH depegs significantly
-- Always monitor your position's health factor
-- The platform is deployed on a mainnet fork (contract.dev) for testing
-- Never share your private keys or commit them to version control
-
-## Troubleshooting
-
-### Frontend Transaction Errors
-
-If you encounter "Block at number X could not be found" errors:
-- The transaction likely succeeded despite the error
-- Clear your wallet's cached data
-- The error is due to block number caching on the forked network
-
-### Gas Estimation Failures
-
-Gas limits are manually set to avoid estimation issues on the fork:
-- Leverage execution: 3,000,000 gas
-- Token approvals: 100,000 gas
+- This is experimental software for a hackathon. Use at your own risk.
+- Flash loans carry liquidation risk if oracle prices deviate significantly from intrinsic values.
+- Always monitor your position's health factor.
+- Never share private keys or commit them to version control.
 
 ## License
 
 MIT
-
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request.
-
-## Support
-
-For questions or issues, please open an issue on the GitHub repository.
