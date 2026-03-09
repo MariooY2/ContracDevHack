@@ -12,7 +12,7 @@ interface IOracle {
     function price() external view returns (uint256);
 }
 
-/// @notice Uniswap V3 SwapRouter02 interface
+/// @notice Uniswap V3 Router interface
 interface ISwapRouter {
     struct ExactInputSingleParams {
         address tokenIn;
@@ -67,13 +67,13 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
     uint256 public immutable LLTV;
     address public immutable WETH;
     address public immutable WSTETH;
-    address public immutable SWAP_ROUTER;        // Uniswap V3 SwapRouter02
+    address public immutable SWAP_ROUTER;        // Uniswap V3 Router
     address public immutable UNI_POOL;           // Uniswap V3 wstETH/WETH pool
-    uint24  public immutable POOL_FEE;           // Uniswap V3 fee tier (100 = 0.01%)
+    uint24  public immutable POOL_FEE;           // Pool fee tier (100 = 0.01%)
     address public immutable owner;
 
     // Constants
-    uint24 public constant DEFAULT_POOL_FEE = 100; // 0.01% Uniswap V3 fee tier (wstETH/WETH)
+    uint24 public constant DEFAULT_POOL_FEE = 100; // Uniswap V3 0.01% fee tier
     uint256 public constant MIN_HEALTH_FACTOR = 1e18; // 1.0 in 18 decimals
     uint256 public constant MAX_LEVERAGE = 100e18;
     uint256 public constant PRECISION = 1e18;
@@ -207,9 +207,13 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
         // Pull wstETH from user
         IERC20(WSTETH).safeTransferFrom(msg.sender, address(this), userDeposit);
 
-        // Calculate flash loan amount using oracle price (36 decimals)
-        uint256 oraclePrice = IOracle(ORACLE).price(); // wstETH/WETH price in 36 decimals
-        uint256 flashWeth = (userDeposit * oraclePrice * (targetLeverage - PRECISION)) / (PRECISION * 1e36);
+        // Calculate how much additional wstETH we need for target leverage,
+        // then convert to WETH using pool price (what the swap will actually give).
+        // additionalWsteth = userDeposit * (leverage - 1)
+        // flashWeth = additionalWsteth * poolRate (WETH per wstETH)
+        uint256 additionalWsteth = (userDeposit * (targetLeverage - PRECISION)) / PRECISION;
+        uint256 poolWethPerWsteth = _getPoolAmountOut(1e18, false); // 1 wstETH → ? WETH
+        uint256 flashWeth = (additionalWsteth * poolWethPerWsteth) / 1e18;
 
         if (flashWeth == 0) revert InvalidParameters();
 
@@ -276,7 +280,7 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
         (, address user, uint256 userDeposit) =
             abi.decode(params, (uint8, address, uint256));
 
-        // 1. Swap WETH -> wstETH via Aerodrome
+        // 1. Swap WETH -> wstETH via Uniswap V3
         uint256 wstethBefore = IERC20(WSTETH).balanceOf(address(this));
 
         _uniV3Swap(WETH, WSTETH, flashWeth);
@@ -316,7 +320,7 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
      * @notice Execute position unwinding (deleverage)
      * @dev User must have authorized this contract via Morpho.setAuthorization()
      *      Repays the exact debt, withdraws all collateral, and returns all equity wstETH.
-     *      Uses Aerodrome for the wstETH→WETH swap with oracle-calculated exact amounts.
+     *      Uses Uniswap V3 for the wstETH→WETH swap with oracle-calculated exact amounts.
      */
     function executeDeleverage() external whenNotPaused nonReentrant {
         // Check user has authorized this contract
@@ -339,9 +343,9 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
 
         if (debtAmount == 0) revert NoDebtPosition();
 
-        // Small buffer (0.1%) covers interest accrued between this read and repay().
+        // Buffer (1%) covers interest accrued between this read and repay().
         // Morpho flash loans are FREE — any surplus WETH is returned to the user.
-        uint256 flashAmount = debtAmount + debtAmount / 1000 + 1;
+        uint256 flashAmount = debtAmount + debtAmount / 100 + 1;
 
         bytes memory params = abi.encode(
             uint8(1), // operation type: 1 = deleverage
@@ -386,11 +390,10 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
         uint256 wethDeficit = flashWeth > wethBalance ? flashWeth - wethBalance : 0;
 
         if (wethDeficit > 0) {
-            uint256 oraclePrice = IOracle(ORACLE).price(); // wstETH/WETH in 36 decimals
-
-            // Apply 2% slippage buffer: CL pool rate is very close to oracle (~0.1% gap)
-            // (ceiling division so we never under-swap)
-            uint256 wstethToSwap = (wethDeficit * 1e36 * 102 + oraclePrice * 100 - 1) / (oraclePrice * 100);
+            // Use pool price (not oracle) to calculate swap amount — oracle may differ.
+            // Apply 2% slippage buffer + ceiling division so we never under-swap.
+            uint256 poolWethPerWsteth = _getPoolAmountOut(1e18, false); // 1 wstETH → ? WETH
+            uint256 wstethToSwap = (wethDeficit * 1e18 * 102 + poolWethPerWsteth * 100 - 1) / (poolWethPerWsteth * 100);
             uint256 availableWsteth = IERC20(WSTETH).balanceOf(address(this));
             if (wstethToSwap > availableWsteth) wstethToSwap = availableWsteth;
 
@@ -409,16 +412,16 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
         uint256 wethFinal = IERC20(WETH).balanceOf(address(this));
         if (wethFinal < flashWeth) revert InsufficientSwapOutput();
 
-        // 4. Swap surplus WETH back to wstETH so user receives everything in one token
-        uint256 surplusWeth = wethFinal > flashWeth ? wethFinal - flashWeth : 0;
-        if (surplusWeth > 0) {
-            _uniV3Swap(WETH, WSTETH, surplusWeth);
-        }
-
-        // 5. Return ALL wstETH to user (equity + converted surplus)
+        // 4. Return remaining wstETH to user (equity)
         uint256 remainingWsteth = IERC20(WSTETH).balanceOf(address(this));
         if (remainingWsteth > 0) {
             IERC20(WSTETH).safeTransfer(user, remainingWsteth);
+        }
+
+        // 5. Return any surplus WETH to user
+        uint256 surplusWeth = wethFinal > flashWeth ? wethFinal - flashWeth : 0;
+        if (surplusWeth > 0) {
+            IERC20(WETH).safeTransfer(user, surplusWeth);
         }
 
         emit PositionUnwound(user, assetsRepaid, collateralAmount, remainingWsteth);
@@ -519,15 +522,18 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
         }
 
         uint256 oraclePrice = IOracle(ORACLE).price(); // wstETH/WETH price in 36 decimals
-        // Flash loan amount uses oracle price (determines how much WETH to borrow)
-        flashWethAmount = (userDeposit * oraclePrice * (targetLeverage - PRECISION)) / (PRECISION * 1e36);
 
-        // Use CL pool slot0 price to estimate wstETH received from swap
+        // Flash loan: additional wstETH needed * pool rate
+        uint256 additionalWsteth = (userDeposit * (targetLeverage - PRECISION)) / PRECISION;
+        uint256 poolWethPerWsteth = _getPoolAmountOut(1e18, false);
+        flashWethAmount = (additionalWsteth * poolWethPerWsteth) / 1e18;
+
+        // Use pool price to estimate wstETH received from swap
         uint256 estimatedWstethFromSwap;
         if (UNI_POOL != address(0) && flashWethAmount > 0) {
             estimatedWstethFromSwap = _getPoolAmountOut(flashWethAmount, true);
         } else {
-            estimatedWstethFromSwap = (flashWethAmount * 1e36) / oraclePrice;
+            estimatedWstethFromSwap = (flashWethAmount * 1e18) / poolWethPerWsteth;
         }
 
         totalCollateralWsteth = userDeposit + estimatedWstethFromSwap;

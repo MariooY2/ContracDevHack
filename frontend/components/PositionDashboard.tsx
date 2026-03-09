@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { formatEther } from 'viem';
 import type { ReserveInfo } from '@/lib/types';
+import Tooltip from '@/components/Tooltip';
 
 interface PositionDashboardProps {
   collateralBalance: bigint;
@@ -26,7 +27,7 @@ function HealthArc({ healthFactor, color }: { healthFactor: number; color: strin
           <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#FF3366" />
             <stop offset="45%" stopColor="#F59E0B" />
-            <stop offset="100%" stopColor="#00FF88" />
+            <stop offset="100%" stopColor="#00FFD1" />
           </linearGradient>
         </defs>
         <path
@@ -52,9 +53,11 @@ function HealthArc({ healthFactor, color }: { healthFactor: number; color: strin
         <p className="text-xl font-black font-mono" style={{ color }}>
           {healthFactor.toFixed(2)}
         </p>
-        <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-widest font-mono mt-0.5">
-          Health Factor
-        </p>
+        <Tooltip
+          label="Health Factor"
+          tip="Ratio of collateral value to debt. Below 1.0 = liquidation. Above 1.5 = safe."
+          className="text-[9px] text-[var(--text-muted)] uppercase tracking-widest font-mono mt-0.5"
+        />
       </div>
     </div>
   );
@@ -92,7 +95,7 @@ export default function PositionDashboard({
   const equity = collateralInEth - debt;
   const currentLeverage = equity > 0 ? collateralInEth / equity : 0;
 
-  const hfColor = healthFactor > 1.5 ? '#00FF88' : healthFactor > 1.1 ? '#F59E0B' : '#FF3366';
+  const hfColor = healthFactor > 1.5 ? '#00FFD1' : healthFactor > 1.1 ? '#F59E0B' : '#FF3366';
   const hfLabel = healthFactor > 1.5 ? 'SAFE' : healthFactor > 1.1 ? 'CAUTION' : 'DANGER';
 
   const stakingYield = reserveInfo?.stakingYield || 3.2;
@@ -187,7 +190,7 @@ export default function PositionDashboard({
           {/* LTV progress bar */}
           <div className="glass-inner p-4">
             <div className="flex justify-between text-[10px] font-mono mb-2">
-              <span style={{ color: 'var(--text-muted)' }}>Debt / Collateral</span>
+              <Tooltip label="Debt / Collateral" tip="Your loan-to-value ratio. Higher = closer to liquidation. Max LTV varies by market." className="text-(--text-muted)" />
               <span style={{ color: hfColor }}>
                 {collateralInEth > 0 ? ((debt / collateralInEth) * 100).toFixed(1) : '0.0'}%
               </span>

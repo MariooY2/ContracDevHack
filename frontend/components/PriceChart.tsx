@@ -130,8 +130,8 @@ export default function PriceChart({ exchangeRate, reserveInfo }: PriceChartProp
             <div
               className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-mono font-bold"
               style={{
-                background: fromCache ? 'rgba(245,158,11,0.1)' : 'rgba(0,255,136,0.1)',
-                border: `1px solid ${fromCache ? 'rgba(245,158,11,0.2)' : 'rgba(0,255,136,0.2)'}`,
+                background: fromCache ? 'rgba(245,158,11,0.1)' : 'rgba(0,255,209,0.1)',
+                border: `1px solid ${fromCache ? 'rgba(245,158,11,0.2)' : 'rgba(0,255,209,0.2)'}`,
                 color: fromCache ? 'var(--accent-warning)' : 'var(--accent-primary)',
               }}
             >
@@ -267,7 +267,7 @@ export default function PriceChart({ exchangeRate, reserveInfo }: PriceChartProp
               <p className="text-base font-black font-mono text-[#fbbf24]">
                 {latestPoint ? latestPoint.market.toFixed(4) : '-'}
               </p>
-              <p className="text-[9px] font-mono" style={{ color: premiumPct !== null ? (premiumPct >= 0 ? '#00FF88' : '#FF3366') : 'var(--text-muted)' }}>
+              <p className="text-[9px] font-mono" style={{ color: premiumPct !== null ? (premiumPct >= 0 ? '#00FFD1' : '#FF3366') : 'var(--text-muted)' }}>
                 {premiumPct !== null ? `${premiumPct >= 0 ? '+' : ''}${premiumPct.toFixed(3)}%` : '--'}
               </p>
             </div>

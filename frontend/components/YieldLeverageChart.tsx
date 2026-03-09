@@ -98,15 +98,15 @@ export default function YieldLeverageChart({ reserveInfo, leverage, maxLeverage,
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
           <defs>
             <linearGradient id="yieldGreenGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#00FF88" stopOpacity="0.25" />
-              <stop offset="100%" stopColor="#00FF88" stopOpacity="0.02" />
+              <stop offset="0%" stopColor="#00FFD1" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#00FFD1" stopOpacity="0.02" />
             </linearGradient>
             <linearGradient id="yieldRedGrad" x1="0" y1="1" x2="0" y2="0">
               <stop offset="0%" stopColor="#FF3366" stopOpacity="0.25" />
               <stop offset="100%" stopColor="#FF3366" stopOpacity="0.02" />
             </linearGradient>
             <linearGradient id="yieldLine" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#00FF88" />
+              <stop offset="0%" stopColor="#00FFD1" />
               <stop offset="100%" stopColor={apyAtMax >= 0 ? '#00C2FF' : '#FF3366'} />
             </linearGradient>
           </defs>

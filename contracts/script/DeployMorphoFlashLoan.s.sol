@@ -11,7 +11,7 @@ contract DeployMorphoFlashLoan is Script {
     bytes32 constant MARKET_ID = 0x3a4048c64ba1b375330d376b1ce40e4047d03b47ab4d48af484edec9fec801ba;
     address constant WETH = 0x4200000000000000000000000000000000000006;
     address constant WSTETH = 0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452;
-    // Uniswap V3 SwapRouter02 on Base
+    // Uniswap V3 Router on Base
     address constant SWAP_ROUTER = 0x2626664c2603336E57B271c5C0b26F421741e481;
     // Uniswap V3 wstETH/WETH pool on Base (0.01% fee)
     address constant UNI_POOL = 0x20E068D76f9E90b90604500B84c7e19dCB923e7e;

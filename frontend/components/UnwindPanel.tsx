@@ -1,47 +1,28 @@
 'use client';
 
-import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatEther } from 'viem';
-import { useLeverageContract } from '@/hooks/useLeverageContract';
 
 interface UnwindPanelProps {
   debtBalance: bigint;
   collateralBalance: bigint;
   healthFactor: number;
   exchangeRate: number;
-  onSuccess: () => void;
+  isConnected: boolean;
+  executing: boolean;
+  txStatus: string;
+  isError: boolean;
+  onRequestClose: () => void;
 }
 
 export default function UnwindPanel({
-  debtBalance, collateralBalance, healthFactor, exchangeRate, onSuccess,
+  debtBalance, collateralBalance, healthFactor, exchangeRate,
+  isConnected, executing, txStatus, isError, onRequestClose,
 }: UnwindPanelProps) {
-  const { isConnected, executeDeleverage } = useLeverageContract();
-  const [executing, setExecuting] = useState(false);
-  const [txStatus, setTxStatus] = useState('');
-  const [isError, setIsError] = useState(false);
+  const hfColor = healthFactor > 1.5 ? 'var(--accent-primary)' : healthFactor > 1.1 ? 'var(--accent-warning)' : 'var(--accent-secondary)';
 
   const debtInWsteth = exchangeRate > 0 ? BigInt(Math.floor(Number(debtBalance) / exchangeRate)) : 0n;
   const equity = collateralBalance > debtInWsteth ? collateralBalance - debtInWsteth : 0n;
-
-  const hfColor = healthFactor > 1.5 ? 'var(--accent-primary)' : healthFactor > 1.1 ? 'var(--accent-warning)' : 'var(--accent-secondary)';
-
-  const handleUnwind = async () => {
-    setExecuting(true);
-    setIsError(false);
-    setTxStatus('Executing flash loan unwind...');
-    try {
-      await executeDeleverage();
-      setTxStatus('Position closed successfully!');
-      onSuccess();
-      setTimeout(() => setTxStatus(''), 4000);
-    } catch (err: any) {
-      const errorMsg = err.message || err.toString();
-      setTxStatus(errorMsg.slice(0, 80));
-      setIsError(true);
-    }
-    setExecuting(false);
-  };
 
   if (debtBalance === 0n) {
     return (
@@ -72,7 +53,7 @@ export default function UnwindPanel({
           <div
             className="px-3 py-1.5 rounded-full text-[10px] font-bold font-mono tracking-widest"
             style={{
-              background: 'rgba(0,255,136,0.08)',
+              background: 'rgba(0,255,209,0.08)',
               color: hfColor,
               border: `1px solid rgba(255,255,255,0.1)`,
             }}
@@ -110,9 +91,9 @@ export default function UnwindPanel({
           <span
             className="text-xs font-bold font-mono px-2 py-0.5 rounded-full"
             style={{
-              background: 'rgba(0,255,136,0.1)',
+              background: 'rgba(0,255,209,0.1)',
               color: 'var(--accent-primary)',
-              border: '1px solid rgba(0,255,136,0.2)',
+              border: '1px solid rgba(0,255,209,0.2)',
             }}
           >
             FREE (0%)
@@ -124,7 +105,7 @@ export default function UnwindPanel({
       <button
         className="btn-danger"
         disabled={!isConnected || executing}
-        onClick={handleUnwind}
+        onClick={onRequestClose}
       >
         {executing ? txStatus : 'Close Entire Position'}
       </button>
@@ -138,8 +119,8 @@ export default function UnwindPanel({
             exit={{ opacity: 0, y: 8 }}
             className="mt-3 p-3 rounded-xl text-center"
             style={{
-              background: isError ? 'rgba(255,51,102,0.07)' : 'rgba(0,255,136,0.07)',
-              border: `1px solid ${isError ? 'rgba(255,51,102,0.2)' : 'rgba(0,255,136,0.2)'}`,
+              background: isError ? 'rgba(255,51,102,0.07)' : 'rgba(0,255,209,0.07)',
+              border: `1px solid ${isError ? 'rgba(255,51,102,0.2)' : 'rgba(0,255,209,0.2)'}`,
             }}
           >
             <p

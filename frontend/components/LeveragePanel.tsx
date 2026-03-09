@@ -6,6 +6,7 @@ import { formatEther } from 'viem';
 import { useLeverageContract } from '@/hooks/useLeverageContract';
 import { useAppStore } from '@/store/useAppStore';
 import type { ReserveInfo } from '@/lib/types';
+import Tooltip from '@/components/Tooltip';
 
 interface LeveragePanelProps {
   onSuccess: () => void;
@@ -173,9 +174,11 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
       {/* Leverage slider */}
       <div className="mb-5">
         <div className="flex justify-between items-center mb-3">
-          <label className="text-[10px] text-(--text-muted) uppercase tracking-[0.15em] font-mono font-bold">
-            Leverage
-          </label>
+          <Tooltip
+            label="Leverage"
+            tip="Multiplier on your wstETH exposure. Higher = more yield but closer to liquidation."
+            className="text-[10px] text-(--text-muted) uppercase tracking-[0.15em] font-mono font-bold"
+          />
           <motion.span
             key={leverage.toFixed(1)}
             initial={{ scale: 0.9, opacity: 0.6 }}
@@ -193,6 +196,8 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
           step="0.5"
           value={leverage}
           onChange={(e) => setLeverage(parseFloat(e.target.value))}
+          className="slider-fill"
+          style={{ '--slider-pct': `${((leverage - 1.1) / (maxLeverage - 1.1)) * 100}%` } as React.CSSProperties}
         />
         <div className="flex justify-between text-[10px] font-mono mt-1.5">
           <span style={{ color: 'var(--text-muted)' }}>1.1× Safe</span>
@@ -272,7 +277,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
             )}
             <div className="divider" />
             <div className="flex justify-between items-center">
-              <span className="text-xs text-(--text-secondary) font-mono">Health Factor</span>
+              <Tooltip label="Health Factor" tip="Below 1.0 triggers liquidation. Keep above 1.5 for safety." className="text-xs text-(--text-secondary) font-mono" />
               <div className="flex items-center gap-2">
                 <div
                   className={`w-2 h-2 rounded-full ${simulation.estimatedHealthFactor > 1.5 ? 'pulse-safe' : 'pulse-danger'}`}
@@ -371,8 +376,8 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
             exit={{ opacity: 0, y: 8 }}
             className="mt-3 p-3 rounded-xl text-center"
             style={{
-              background: showError ? 'rgba(255,51,102,0.07)' : 'rgba(0,255,136,0.07)',
-              border: `1px solid ${showError ? 'rgba(255,51,102,0.2)' : 'rgba(0,255,136,0.2)'}`,
+              background: showError ? 'rgba(255,51,102,0.07)' : 'rgba(0,255,209,0.07)',
+              border: `1px solid ${showError ? 'rgba(255,51,102,0.2)' : 'rgba(0,255,209,0.2)'}`,
             }}
           >
             <p className="text-xs font-bold font-mono" style={{ color: showError ? 'var(--accent-secondary)' : 'var(--accent-primary)' }}>

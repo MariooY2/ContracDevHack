@@ -88,12 +88,12 @@ export default function YieldBreakdown({ reserveInfo, leverage, exchangeRate, is
       {/* Net APY hero */}
       <div
         className="glass-inner p-5 mb-5 text-center relative overflow-hidden"
-        style={{ background: 'rgba(0,255,136,0.04)', border: '1px solid rgba(0,255,136,0.1)' }}
+        style={{ background: 'rgba(0,255,209,0.04)', border: '1px solid rgba(0,255,209,0.1)' }}
       >
         {/* Subtle glow behind number */}
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse at center, rgba(0,255,136,0.08) 0%, transparent 70%)' }}
+          style={{ background: 'radial-gradient(ellipse at center, rgba(0,255,209,0.08) 0%, transparent 70%)' }}
         />
         <p className="text-[10px] text-(--text-muted) uppercase tracking-[0.2em] font-mono mb-2">
           Net APY at {leverage.toFixed(1)}x Leverage
