@@ -46,12 +46,12 @@ interface IUniV3Pool {
  * @dev
  *   Leverage:  deposit wstETH -> flash-loan WETH (free) -> swap WETH->wstETH via Uniswap V3 -> supply collateral -> borrow WETH -> repay flash loan
  *   Deleverage: flash-loan WETH -> repay debt -> withdraw wstETH collateral -> swap wstETH->WETH via Uniswap V3 -> repay flash loan -> return remaining wstETH
- * @dev Key differences from Aave:
- *   - Morpho flash loans have NO premium (free)
- *   - Uses authorization instead of credit delegation
- *   - Callback signature is onMorphoFlashLoan(uint256, bytes) with NO return value
- *   - Uses MarketParams struct instead of asset addresses
- *   - No aToken transfers - uses withdrawCollateral with onBehalf parameter
+ * @dev Morpho Blue specifics:
+ *   - Flash loans have NO premium (free)
+ *   - Uses authorization (not credit delegation)
+ *   - Callback signature: onMorphoFlashLoan(uint256, bytes) with no return value
+ *   - Uses MarketParams struct for market identification
+ *   - Uses withdrawCollateral with onBehalf parameter
  */
 contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -231,7 +231,7 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
     /**
      * @notice Morpho flash loan callback
      * @dev Called by Morpho after flash loan assets are transferred
-     *      Unlike Aave, this does NOT return a boolean - reverts on failure
+     *      Does NOT return a boolean - reverts on failure
      * @param assets Amount of WETH flash loaned
      * @param data Encoded operation parameters
      */

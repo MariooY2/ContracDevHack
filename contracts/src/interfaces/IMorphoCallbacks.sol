@@ -10,7 +10,7 @@ interface IMorphoFlashLoanCallback {
     ///      The receiver must approve Morpho to pull back the loaned assets + any premium
     /// @param assets The amount of assets that were flash loaned
     /// @param data Arbitrary data passed from the flash loan initiator
-    /// @dev Unlike Aave, this callback does NOT return a boolean value
+    /// @dev This callback does NOT return a boolean value.
     ///      Morpho will revert the entire transaction if repayment fails
     function onMorphoFlashLoan(uint256 assets, bytes calldata data) external;
 }

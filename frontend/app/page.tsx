@@ -540,7 +540,7 @@ export default function Home() {
             {[
               { name: 'Morpho Blue', color: '#00C2FF' },
               { name: 'Lido', color: '#00FFD1' },
-              { name: 'Aerodrome', color: '#A78BFA' },
+              { name: 'Uniswap V3', color: '#A78BFA' },
               { name: 'Chainlink', color: '#375BD2' },
               { name: 'Base', color: '#0052FF' },
             ].map(p => (

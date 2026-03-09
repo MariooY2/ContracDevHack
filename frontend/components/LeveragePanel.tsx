@@ -245,12 +245,12 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
                 </div>
               );
             })()}
-            {/* Aerodrome exchange rate */}
+            {/* Uniswap V3 exchange rate */}
             {morphoRates && (
               <>
                 <div className="divider" />
                 <p className="text-[9px] text-(--text-muted) uppercase tracking-[0.15em] font-mono font-bold">
-                  Aerodrome Pool Rate
+                  Uniswap V3 Pool Rate
                 </p>
                 <div className="flex justify-between">
                   <span className="text-xs text-(--text-secondary) font-mono">1 wstETH → WETH</span>
