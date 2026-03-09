@@ -264,6 +264,24 @@ export function useLeverageContract() {
     if (!walletClient || !address || !publicClient) throw new Error('Wallet not connected');
 
     try {
+      // Ensure Morpho authorization for this helper contract
+      const isAuthorized = await publicClient.readContract({
+        address: MORPHO_ADDRESSES.LEVERAGE_HELPER,
+        abi: MORPHO_FLASH_LOAN_HELPER_ABI,
+        functionName: 'hasAuthorization',
+        args: [address],
+      });
+      if (!isAuthorized) {
+        const authHash = await walletClient.writeContract({
+          address: MORPHO_ADDRESSES.MORPHO_BLUE,
+          abi: MORPHO_ABI,
+          functionName: 'setAuthorization',
+          args: [MORPHO_ADDRESSES.LEVERAGE_HELPER, true],
+          gas: 100000n,
+        });
+        await publicClient.waitForTransactionReceipt({ hash: authHash });
+      }
+
       const hash = await walletClient.writeContract({
         address: MORPHO_ADDRESSES.LEVERAGE_HELPER,
         abi: MORPHO_FLASH_LOAN_HELPER_ABI,
