@@ -79,7 +79,19 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
 
   const handleForceRefresh = async () => {
     clearOracleCache();
-    await fetchData();
+    setLoading(true);
+    try {
+      const oracleData = await getOracleData(true);
+      setFromCache(oracleData.fromCache);
+      setCacheAgeMin(Math.round(oracleData.cacheAgeMs / 60000));
+      if (oracleData.points.length >= 2) {
+        setAllPoints(oracleData.points);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'unknown';
+      setError(`Failed: ${msg.slice(0, 60)}`);
+    }
+    setLoading(false);
   };
 
   // ── Compute depeg stats (round-to-round % changes) ─────────────────────
@@ -226,7 +238,7 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
           <button
             onClick={handleForceRefresh}
             disabled={loading}
-            title="Force refresh from Supabase"
+            title="Force refresh from Dune"
             className="p-1.5 rounded-lg transition-all hover:opacity-80 disabled:opacity-30"
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)' }}
           >

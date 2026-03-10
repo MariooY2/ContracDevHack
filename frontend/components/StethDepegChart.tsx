@@ -52,7 +52,19 @@ export default function StethDepegChart() {
 
   const handleForceRefresh = async () => {
     clearStethCache();
-    await fetchData();
+    setLoading(true);
+    try {
+      const data = await getStethData(true);
+      setFromCache(data.fromCache);
+      setCacheAgeMin(Math.round(data.cacheAgeMs / 60000));
+      if (data.points.length >= 2) {
+        setAllPoints(data.points);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'unknown';
+      setError(`Failed: ${msg.slice(0, 60)}`);
+    }
+    setLoading(false);
   };
 
   // ── Depeg analysis ──────────────────────────────────────────────

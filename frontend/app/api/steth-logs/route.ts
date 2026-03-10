@@ -13,10 +13,13 @@ let cachedData: { points: { roundId: number; price: number; timestamp: number; b
  * Fetches stETH/ETH depeg rounds directly from Dune Analytics.
  * Server-side cached for 6 hours.
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // Return cached data if fresh
-    if (cachedData && Date.now() - cachedData.ts < CACHE_TTL) {
+    const { searchParams } = new URL(request.url);
+    const forceRefresh = searchParams.get('refresh') === '1';
+
+    // Return cached data if fresh (unless force refresh)
+    if (!forceRefresh && cachedData && Date.now() - cachedData.ts < CACHE_TTL) {
       return NextResponse.json({ points: cachedData.points }, {
         headers: { 'Cache-Control': 'public, max-age=300' },
       });
