@@ -43,7 +43,7 @@ export const useAppStore = create<AppState>()((set) => ({
 
   isInitialLoad: true,
   isMarketLoading: true,
-  isPositionLoading: false,
+  isPositionLoading: true,
 
   setMarketData: ({ reserveInfo, exchangeRate }) =>
     set({ reserveInfo, exchangeRate, isMarketLoading: false }),

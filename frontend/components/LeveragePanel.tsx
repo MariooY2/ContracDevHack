@@ -18,6 +18,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
   const { isConnected, simulateLeverage, getMaxSafeLeverage, executeLeverage, address, getMorphoExchangeRates } = useLeverageContract();
 
   const walletBalance = useAppStore((s) => s.walletBalance);
+  const isPositionLoading = useAppStore((s) => s.isPositionLoading);
   const balance = Number(formatEther(walletBalance)).toFixed(4);
 
   const [deposit, setDeposit] = useState('1');
@@ -121,7 +122,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
   };
   const yieldData = calculateYield();
 
-  const isOverBalance = parseFloat(deposit) > parseFloat(balance);
+  const isOverBalance = !isPositionLoading && parseFloat(deposit) > parseFloat(balance);
 
   return (
     <div className="card-glow p-6">
