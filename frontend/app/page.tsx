@@ -535,28 +535,6 @@ export default function Home() {
             </div>
             <span style={{ color: 'var(--text-muted)' }} className="text-[10px]">Use at your own risk</span>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[9px] font-mono uppercase tracking-[0.15em]" style={{ color: 'var(--text-muted)' }}>Powered by</span>
-            {[
-              { name: 'Morpho Blue', color: '#00C2FF' },
-              { name: 'Lido', color: '#00FFD1' },
-              { name: 'Uniswap V3', color: '#A78BFA' },
-              { name: 'Chainlink', color: '#375BD2' },
-              { name: 'Base', color: '#0052FF' },
-            ].map(p => (
-              <span
-                key={p.name}
-                className="px-2.5 py-1 rounded-full text-[9px] font-mono font-bold"
-                style={{
-                  background: `${p.color}10`,
-                  border: `1px solid ${p.color}25`,
-                  color: p.color,
-                }}
-              >
-                {p.name}
-              </span>
-            ))}
-          </div>
         </div>
       </footer>
 

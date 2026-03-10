@@ -83,7 +83,7 @@ export function useLeverageContract() {
     const response = await fetch('https://eth-api.lido.fi/v1/protocol/steth/apr/sma');
     if (!response.ok) throw new Error(`Lido API returned ${response.status}`);
     const data = await response.json();
-    return data.data.smaApr;
+    return Math.round(data.data.smaApr * 1000) / 1000;
   };
 
   // Get reserve info from Morpho market
