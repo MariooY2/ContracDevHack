@@ -3,10 +3,10 @@ import { useAccount, useWalletClient } from 'wagmi';
 import { parseEther, formatEther, maxUint256, createPublicClient, http } from 'viem';
 import {
   MORPHO_ADDRESSES, MORPHO_FLASH_LOAN_HELPER_ABI, MORPHO_ABI, ERC20_ABI, MORPHO_MARKET_ID,
-} from '@/lib/leverageContract';
-import { contractDevBase } from '@/lib/wagmi';
-import { BASE_RPC_URL } from '@/lib/types';
-import { getMorphoAPY } from '@/lib/morphoApi';
+} from '../lib/leverageContract';
+import { contractDevBase } from '../lib/wagmi';
+import { BASE_RPC_URL } from '../lib/types';
+import { getMorphoAPY } from '../lib/morphoApi';
 
 export function useLeverageContract() {
   const { address, isConnected } = useAccount();

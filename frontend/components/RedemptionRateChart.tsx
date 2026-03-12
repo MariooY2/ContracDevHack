@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { CardLoader } from '@/components/Loader';
-import { getOracleData, clearOracleCache, OracleDataPoint } from '@/lib/oracleCache';
+import { CardLoader } from './Loader';
+import { getOracleData, clearOracleCache, OracleDataPoint } from '../lib/oracleCache';
 
 export default function RedemptionRateChart() {
   const [oraclePoints, setOraclePoints] = useState<OracleDataPoint[]>([]);

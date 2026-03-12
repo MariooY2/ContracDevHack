@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { CardLoader } from '@/components/Loader';
-import { getOracleData, clearOracleCache, OracleDataPoint } from '@/lib/oracleCache';
+import { CardLoader } from './Loader';
+import { getOracleData, clearOracleCache, OracleDataPoint } from '../lib/oracleCache';
 
 const DEFAULT_LLTV = 0.81;
 const SAFETY_BUFFER = 0.20;

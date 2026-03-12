@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import type { ReserveInfo } from '@/lib/types';
+import type { ReserveInfo } from '../lib/types';
 
 interface YieldBreakdownProps {
   reserveInfo: ReserveInfo | null;

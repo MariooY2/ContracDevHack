@@ -2,8 +2,8 @@
 
 import { motion } from 'framer-motion';
 import { formatEther } from 'viem';
-import type { ReserveInfo } from '@/lib/types';
-import Tooltip from '@/components/Tooltip';
+import type { ReserveInfo } from '../lib/types';
+import Tooltip from './Tooltip';
 
 interface PositionDashboardProps {
   collateralBalance: bigint;

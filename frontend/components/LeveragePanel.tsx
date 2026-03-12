@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatEther } from 'viem';
-import { useLeverageContract } from '@/hooks/useLeverageContract';
-import { useAppStore } from '@/store/useAppStore';
-import type { ReserveInfo } from '@/lib/types';
-import Tooltip from '@/components/Tooltip';
+import { useLeverageContract } from '../hooks/useLeverageContract';
+import { useAppStore } from '../store/useAppStore';
+import type { ReserveInfo } from '../lib/types';
+import Tooltip from './Tooltip';
 
 interface LeveragePanelProps {
   onSuccess: () => void;
