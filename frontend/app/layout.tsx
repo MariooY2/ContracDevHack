@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from './providers';
+import { ToastProvider } from '@/components/Toast';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,7 +31,22 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          <ToastProvider>
+          <div className="min-h-screen bg-grid-pattern overflow-x-hidden flex flex-col">
+            {/* Aurora background */}
+            <div className="aurora-bg" />
+
+            <Header />
+
+            <main className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 relative z-10 flex-1 w-full">
+              {children}
+            </main>
+
+            <Footer />
+          </div>
+          </ToastProvider>
+        </Providers>
       </body>
     </html>
   );

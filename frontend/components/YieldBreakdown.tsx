@@ -8,6 +8,7 @@ interface YieldBreakdownProps {
   leverage: number;
   exchangeRate: number;
   isLoading?: boolean;
+  collateralSymbol?: string;
 }
 
 function YieldBar({
@@ -43,7 +44,7 @@ function YieldBar({
   );
 }
 
-export default function YieldBreakdown({ reserveInfo, leverage, exchangeRate, isLoading }: YieldBreakdownProps) {
+export default function YieldBreakdown({ reserveInfo, leverage, exchangeRate, isLoading, collateralSymbol = 'wstETH' }: YieldBreakdownProps) {
   if (isLoading) {
     return (
       <div className="card-glow p-6">
@@ -174,13 +175,13 @@ export default function YieldBreakdown({ reserveInfo, leverage, exchangeRate, is
         style={{ background: 'rgba(255,255,255,0.02)' }}
       >
         <div className="flex justify-between items-center">
-          <span className="text-[10px] text-(--text-muted) font-mono">wstETH Exchange Rate</span>
+          <span className="text-[10px] text-(--text-muted) font-mono">{collateralSymbol} Exchange Rate</span>
           <span className="text-xs font-bold font-mono text-(--text-primary)">
-            1 wstETH = {exchangeRate.toFixed(4)} stETH
+            1 {collateralSymbol} = {exchangeRate.toFixed(4)} ETH
           </span>
         </div>
         <p className="text-[10px] text-(--text-muted) mt-1.5 leading-relaxed">
-          wstETH value grows as staking rewards accrue — the rate only ever increases.
+          {collateralSymbol} value grows as staking rewards accrue — the rate only ever increases.
         </p>
       </div>
     </div>

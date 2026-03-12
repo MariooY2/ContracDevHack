@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { CardLoader } from '@/components/Loader';
-import { getOracleData, clearOracleCache, OracleDataPoint } from '@/lib/oracleCache';
+import { getOracleDataByAddress, clearOracleCacheForAddress, OracleDataPoint } from '@/lib/oracleDataCache';
+import { getOracleForCollateral } from '@/lib/oracleMap';
 
 const DEFAULT_LLTV = 0.81;
 const SAFETY_BUFFER = 0.20;
@@ -30,16 +31,19 @@ function maxLeverageFromDepeg(maxDepegPct: number, safetyBuffer: number, lltv: n
 
 interface DepegChartProps {
   reserveInfo: { liquidationThreshold: number; maxLeverage: number } | null;
-  exchangeRate: number;
+  collateralSymbol?: string;
 }
 
-export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProps) {
+export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH' }: DepegChartProps) {
+  const oracle = getOracleForCollateral(collateralSymbol);
   const [allPoints, setAllPoints] = useState<OracleDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [fromCache, setFromCache] = useState(false);
   const [cacheAgeMin, setCacheAgeMin] = useState(0);
   const [timeRange, setTimeRange] = useState<string>('All');
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
 
   const oraclePoints = useMemo(() => {
     const range = TIME_RANGES.find(r => r.label === timeRange);
@@ -53,13 +57,21 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
     ? reserveInfo.liquidationThreshold / 100
     : DEFAULT_LLTV;
 
-  const currentRate = exchangeRate || 1.2286;
+  // Use latest oracle data point as current rate (not the wstETH exchange rate prop)
+  const currentRate = oraclePoints.length > 0
+    ? oraclePoints[oraclePoints.length - 1].rate
+    : 1.0;
 
   const fetchData = useCallback(async () => {
+    if (!oracle) {
+      setError(`No oracle available for ${collateralSymbol}`);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
-      const oracleData = await getOracleData();
+      const oracleData = await getOracleDataByAddress(oracle.address);
       setFromCache(oracleData.fromCache);
       setCacheAgeMin(Math.round(oracleData.cacheAgeMs / 60000));
       if (oracleData.points.length < 2) {
@@ -73,15 +85,16 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
       setError(`Failed: ${msg.slice(0, 60)}`);
     }
     setLoading(false);
-  }, []);
+  }, [oracle, collateralSymbol]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleForceRefresh = async () => {
-    clearOracleCache();
+    if (!oracle) return;
+    clearOracleCacheForAddress(oracle.address);
     setLoading(true);
     try {
-      const oracleData = await getOracleData(true);
+      const oracleData = await getOracleDataByAddress(oracle.address, true);
       setFromCache(oracleData.fromCache);
       setCacheAgeMin(Math.round(oracleData.cacheAgeMs / 60000));
       if (oracleData.points.length >= 2) {
@@ -94,16 +107,33 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
     setLoading(false);
   };
 
-  // ── Compute depeg stats (round-to-round % changes) ─────────────────────
+  // ── Compute depeg stats ─────────────────────────────────────────────────
+  // Max drawdown: largest % drop from any peak to a subsequent trough
+  let maxHistoricalDepeg = 0;
+  let worstDrawdownPeakIdx = -1;
+  let worstDrawdownTroughIdx = -1;
+  let peakRate = oraclePoints.length > 0 ? oraclePoints[0].rate : 0;
+  let peakIdx = 0;
+  for (let i = 1; i < oraclePoints.length; i++) {
+    if (oraclePoints[i].rate > peakRate) {
+      peakRate = oraclePoints[i].rate;
+      peakIdx = i;
+    }
+    const drawdown = ((peakRate - oraclePoints[i].rate) / peakRate) * 100;
+    if (drawdown > maxHistoricalDepeg) {
+      maxHistoricalDepeg = drawdown;
+      worstDrawdownPeakIdx = peakIdx;
+      worstDrawdownTroughIdx = i;
+    }
+  }
+
+  // Round-to-round changes (for latest change display)
   const roundChanges: number[] = [];
   for (let i = 1; i < oraclePoints.length; i++) {
     const pct = ((oraclePoints[i].rate - oraclePoints[i - 1].rate) / oraclePoints[i - 1].rate) * 100;
     roundChanges.push(pct);
   }
   const negativeChanges = roundChanges.filter(v => v < 0);
-  const maxNegChange = negativeChanges.length > 0 ? Math.abs(Math.min(...negativeChanges)) : 0;
-  // Max depeg = largest single-round drop as a %
-  const maxHistoricalDepeg = maxNegChange;
   const latestChange = roundChanges.length > 0 ? roundChanges[roundChanges.length - 1] : 0;
 
   const calculatedMaxLeverage = maxLeverageFromDepeg(maxHistoricalDepeg, SAFETY_BUFFER, lltv);
@@ -127,50 +157,61 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
 
-  const rates = oraclePoints.map(p => p.rate);
-  const rateMin = rates.length > 0 ? Math.min(...rates) : 1.13;
-  const rateMax = rates.length > 0 ? Math.max(...rates) : 1.23;
-  const rateRange = rateMax - rateMin || 0.01;
-  const yMin = rateMin - rateRange * 0.05;
-  const yMax = rateMax + rateRange * 0.05;
+  // Memoize expensive chart calculations
+  const chartData = useMemo(() => {
+    const rates = oraclePoints.map(p => p.rate);
+    const rateMin = rates.length > 0 ? Math.min(...rates) : 0.99;
+    const rateMax = rates.length > 0 ? Math.max(...rates) : 1.01;
+    const rateRange = rateMax - rateMin || 0.01;
+    const yMin = rateMin - rateRange * 0.05;
+    const yMax = rateMax + rateRange * 0.05;
+
+    const _toX = (i: number) => PAD.left + (i / Math.max(oraclePoints.length - 1, 1)) * chartW;
+    const _toY = (rate: number) => PAD.top + (1 - (rate - yMin) / (yMax - yMin)) * chartH;
+
+    const ratePath = oraclePoints
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${_toX(i)} ${_toY(p.rate)}`)
+      .join(' ');
+
+    const areaPath = oraclePoints.length > 1
+      ? ratePath + ` L ${_toX(oraclePoints.length - 1)} ${_toY(yMin)} L ${_toX(0)} ${_toY(yMin)} Z`
+      : '';
+
+    const yTickCount = 5;
+    const yTicks = Array.from({ length: yTickCount }, (_, i) => yMin + ((yMax - yMin) * i) / (yTickCount - 1));
+
+    const xLabels: { idx: number; label: string }[] = [];
+    if (oraclePoints.length > 1) {
+      const tMin = oraclePoints[0].timestamp;
+      const tMax = oraclePoints[oraclePoints.length - 1].timestamp;
+      const xLabelCount = 6;
+      for (let n = 0; n < xLabelCount; n++) {
+        const targetTs = tMin + ((tMax - tMin) * n) / (xLabelCount - 1);
+        let bestIdx = 0;
+        let bestDist = Infinity;
+        for (let j = 0; j < oraclePoints.length; j++) {
+          const dist = Math.abs(oraclePoints[j].timestamp - targetTs);
+          if (dist < bestDist) { bestDist = dist; bestIdx = j; }
+        }
+        const d = new Date(oraclePoints[bestIdx].timestamp * 1000);
+        xLabels.push({
+          idx: bestIdx,
+          label: d.toLocaleString('default', { month: 'short', year: '2-digit' }),
+        });
+      }
+    }
+
+    const totalGrowth = rates.length > 1
+      ? ((rates[rates.length - 1] - rates[0]) / rates[0]) * 100
+      : 0;
+
+    return { rates, yMin, yMax, ratePath, areaPath, yTicks, xLabels, totalGrowth };
+  }, [oraclePoints, PAD.left, PAD.top, chartW, chartH]);
+
+  const { yMin, yMax, ratePath, areaPath, yTicks, xLabels, totalGrowth } = chartData;
 
   const toX = (i: number) => PAD.left + (i / Math.max(oraclePoints.length - 1, 1)) * chartW;
   const toY = (rate: number) => PAD.top + (1 - (rate - yMin) / (yMax - yMin)) * chartH;
-
-  const ratePath = oraclePoints
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(i)} ${toY(p.rate)}`)
-    .join(' ');
-
-  const areaPath = oraclePoints.length > 1
-    ? ratePath + ` L ${toX(oraclePoints.length - 1)} ${toY(yMin)} L ${toX(0)} ${toY(yMin)} Z`
-    : '';
-
-  // Y-axis ticks
-  const yTickCount = 5;
-  const yTicks = Array.from({ length: yTickCount }, (_, i) => yMin + ((yMax - yMin) * i) / (yTickCount - 1));
-
-  // X-axis date labels — pick ~6 evenly-spaced timestamps across the full range
-  const xLabels: { idx: number; label: string }[] = [];
-  if (oraclePoints.length > 1) {
-    const tMin = oraclePoints[0].timestamp;
-    const tMax = oraclePoints[oraclePoints.length - 1].timestamp;
-    const xLabelCount = 6;
-    for (let n = 0; n < xLabelCount; n++) {
-      const targetTs = tMin + ((tMax - tMin) * n) / (xLabelCount - 1);
-      // Find closest data point to this timestamp
-      let bestIdx = 0;
-      let bestDist = Infinity;
-      for (let j = 0; j < oraclePoints.length; j++) {
-        const dist = Math.abs(oraclePoints[j].timestamp - targetTs);
-        if (dist < bestDist) { bestDist = dist; bestIdx = j; }
-      }
-      const d = new Date(oraclePoints[bestIdx].timestamp * 1000);
-      xLabels.push({
-        idx: bestIdx,
-        label: d.toLocaleString('default', { month: 'short', year: '2-digit' }),
-      });
-    }
-  }
 
   // Liquidation rate lines: if rate drops by X% from current, you get liquidated
   const liqLines = leverageLevels.map(level => {
@@ -179,18 +220,8 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
     return { ...level, threshold, liqRate };
   }).filter(l => l.liqRate >= yMin && l.liqRate <= yMax);
 
-  // Find worst dip (largest single-round negative change)
-  let worstDipIdx = -1;
-  if (negativeChanges.length > 0) {
-    const worstVal = Math.min(...roundChanges);
-    const changeIdx = roundChanges.indexOf(worstVal);
-    worstDipIdx = changeIdx + 1; // +1 because roundChanges[i] corresponds to oraclePoints[i+1]
-  }
-
-  // Total growth
-  const totalGrowth = rates.length > 1
-    ? ((rates[rates.length - 1] - rates[0]) / rates[0]) * 100
-    : 0;
+  // Worst dip = trough of the max drawdown
+  const worstDipIdx = worstDrawdownTroughIdx;
 
   const getRiskLevel = () => {
     if (maxHistoricalDepeg === 0) return { level: 'VERY LOW', color: '#10b981', text: 'No depeg events recorded' };
@@ -201,6 +232,27 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
   };
   const riskLevel = getRiskLevel();
 
+  // ── Crosshair hover handler ─────────────────────────────────────────
+  const handleSvgMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    const svg = svgRef.current;
+    if (!svg || oraclePoints.length === 0) return;
+    const rect = svg.getBoundingClientRect();
+    const mouseX = ((e.clientX - rect.left) / rect.width) * W;
+    // Map mouseX to data index
+    const dataIdx = Math.round(((mouseX - PAD.left) / chartW) * (oraclePoints.length - 1));
+    const clamped = Math.max(0, Math.min(oraclePoints.length - 1, dataIdx));
+    setHoverIdx(clamped);
+  }, [oraclePoints.length, W, PAD.left, chartW]);
+
+  const handleSvgMouseLeave = useCallback(() => setHoverIdx(null), []);
+
+  // Hovered point data
+  const hoveredPoint = hoverIdx !== null ? oraclePoints[hoverIdx] : null;
+  const hoveredDate = hoveredPoint ? new Date(hoveredPoint.timestamp * 1000) : null;
+  const hoveredDepeg = hoveredPoint && currentRate > 0
+    ? ((currentRate - hoveredPoint.rate) / currentRate) * 100
+    : 0;
+
   return (
     <div className="card-glow p-6">
       {/* Header */}
@@ -208,7 +260,7 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
         <div>
           <h2 className="text-base font-black gradient-text tracking-tight">Risk Analysis</h2>
           <p className="text-[10px] text-(--text-muted) font-mono mt-0.5">
-            {riskLevel.text}. Oracle wstETH/stETH rate across {oraclePoints.length} rounds.
+            {riskLevel.text}. Oracle {oracle?.pair || collateralSymbol} rate across {oraclePoints.length} rounds.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -264,7 +316,7 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
           <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
         </svg>
         <p className="text-[10px] leading-relaxed font-mono" style={{ color: 'var(--text-secondary)' }}>
-          Shows the on-chain wstETH/stETH oracle exchange rate over time. The rate should only go up as staking rewards accrue. Any dip = depeg event. Dashed lines show where each leverage level would be liquidated.
+          Shows the on-chain {oracle?.pair || collateralSymbol} oracle exchange rate over time. The rate should only go up as staking rewards accrue. Any dip = depeg event. Dashed lines show where each leverage level would be liquidated.
         </p>
       </div>
 
@@ -305,7 +357,15 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
         <>
           {/* Chart */}
           <div className="glass-inner p-4">
-            <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+            <svg
+              ref={svgRef}
+              viewBox={`0 0 ${W} ${H}`}
+              className="w-full"
+              preserveAspectRatio="xMidYMid meet"
+              onMouseMove={handleSvgMouseMove}
+              onMouseLeave={handleSvgMouseLeave}
+              style={{ cursor: hoverIdx !== null ? 'crosshair' : 'default' }}
+            >
               <defs>
                 <linearGradient id="rateGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.25" />
@@ -355,12 +415,12 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
               {/* Rate line */}
               {ratePath && <path d={ratePath} fill="none" stroke="#8b5cf6" strokeWidth="2" />}
 
-              {/* Worst dip marker */}
-              {worstDipIdx > 0 && (
+              {/* Worst drawdown marker */}
+              {worstDipIdx > 0 && maxHistoricalDepeg > 0 && (
                 <>
                   <circle cx={toX(worstDipIdx)} cy={toY(oraclePoints[worstDipIdx].rate)} r="5" fill="#FF3366" stroke="#05080F" strokeWidth="2" />
                   <text x={toX(worstDipIdx)} y={toY(oraclePoints[worstDipIdx].rate) - 10} textAnchor="middle" fill="#fca5a5" fontSize="9" fontWeight="bold">
-                    Worst dip: {roundChanges[worstDipIdx - 1].toFixed(4)}%
+                    Max drawdown: -{maxHistoricalDepeg.toFixed(4)}%
                   </text>
                 </>
               )}
@@ -375,10 +435,70 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
                 </>
               )}
 
+              {/* Crosshair + tooltip on hover */}
+              {hoverIdx !== null && hoveredPoint && (
+                <g>
+                  {/* Vertical crosshair line */}
+                  <line
+                    x1={toX(hoverIdx)} y1={PAD.top}
+                    x2={toX(hoverIdx)} y2={H - PAD.bottom}
+                    stroke="rgba(255,255,255,0.2)" strokeWidth="1" strokeDasharray="3 3"
+                  />
+                  {/* Horizontal reference line */}
+                  <line
+                    x1={PAD.left} y1={toY(hoveredPoint.rate)}
+                    x2={toX(hoverIdx)} y2={toY(hoveredPoint.rate)}
+                    stroke="rgba(167,139,250,0.3)" strokeWidth="1" strokeDasharray="3 3"
+                  />
+                  {/* Highlighted dot */}
+                  <circle
+                    cx={toX(hoverIdx)} cy={toY(hoveredPoint.rate)}
+                    r="5" fill="#a78bfa" stroke="#030711" strokeWidth="2"
+                  />
+                  {/* Tooltip background */}
+                  {(() => {
+                    const tx = toX(hoverIdx);
+                    const ty = toY(hoveredPoint.rate);
+                    const tooltipW = 155;
+                    const tooltipH = 58;
+                    const flipX = tx + tooltipW + 15 > W - PAD.right;
+                    const tooltipX = flipX ? tx - tooltipW - 12 : tx + 12;
+                    const flipY = ty - tooltipH / 2 < PAD.top;
+                    const tooltipY = flipY ? ty + 8 : ty - tooltipH / 2;
+                    return (
+                      <g>
+                        <rect
+                          x={tooltipX} y={tooltipY}
+                          width={tooltipW} height={tooltipH}
+                          rx="8" ry="8"
+                          fill="rgba(10,15,31,0.92)" stroke="rgba(167,139,250,0.3)" strokeWidth="1"
+                        />
+                        <text x={tooltipX + 10} y={tooltipY + 15} fill="#a78bfa" fontSize="9" fontWeight="bold">
+                          {hoveredDate?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </text>
+                        <text x={tooltipX + 10} y={tooltipY + 30} fill="#E8EDF5" fontSize="10" fontWeight="bold">
+                          Rate: {hoveredPoint.rate.toFixed(5)}
+                        </text>
+                        <text x={tooltipX + 10} y={tooltipY + 45} fill={hoveredDepeg > 0 ? '#FF3366' : '#00FFD1'} fontSize="9">
+                          {hoveredDepeg > 0 ? `${hoveredDepeg.toFixed(4)}% below current` : 'At or above current'}
+                        </text>
+                      </g>
+                    );
+                  })()}
+                </g>
+              )}
+
               {/* Axis label */}
               <text x={PAD.left + 5} y={PAD.top + 12} fill="#a78bfa" fontSize="10" fontWeight="600" opacity="0.7">
-                wstETH/stETH Exchange Rate
+                {oracle?.pair || collateralSymbol} Exchange Rate
               </text>
+
+              {/* Invisible rect to capture mouse events across entire chart area */}
+              <rect
+                x={PAD.left} y={PAD.top}
+                width={chartW} height={chartH}
+                fill="transparent"
+              />
             </svg>
 
             {/* Legend */}
@@ -447,7 +567,7 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
               <p className="text-[9px] text-(--text-muted) uppercase tracking-[0.15em] font-mono font-bold mb-2">Safety Analysis</p>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono text-(--text-muted)">Worst Dip</span>
+                  <span className="text-[10px] font-mono text-(--text-muted)">Max Drawdown</span>
                   <span className="text-sm font-black font-mono" style={{ color: maxHistoricalDepeg > 0 ? 'var(--accent-secondary)' : 'var(--accent-primary)' }}>
                     {maxHistoricalDepeg > 0 ? `-${maxHistoricalDepeg.toFixed(4)}%` : 'None'}
                   </span>
