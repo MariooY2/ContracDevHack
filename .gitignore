@@ -7,7 +7,6 @@
 cache/
 out/
 broadcast/
-lib/
 
 # Node.js (Frontend)
 frontend/node_modules/

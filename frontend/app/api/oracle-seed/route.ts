@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { DuneClient } from '@duneanalytics/client-sdk';
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 const DUNE_QUERY_ID = 6791272;
 

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { CardLoader } from './Loader';
-import { getHistoricalPrices, clearPriceCache } from '../lib/priceCache';
+import { CardLoader } from '@/components/Loader';
+import { getHistoricalPrices, clearPriceCache } from '@/lib/priceCache';
 
 interface ChartPoint {
   date: string;

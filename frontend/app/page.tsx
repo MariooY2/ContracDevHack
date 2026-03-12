@@ -3,17 +3,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatEther } from 'viem';
-import { WalletConnect } from '../components/WalletConnect';
-import LeveragePanel from '../components/LeveragePanel';
-import UnwindPanel from '../components/UnwindPanel';
-import UnwindConfirmModal from '../components/UnwindConfirmModal';
-import PositionDashboard from '../components/PositionDashboard';
-import YieldBreakdown from '../components/YieldBreakdown';
-import DepegChart from '../components/DepegChart';
-import YieldLeverageChart from '../components/YieldLeverageChart';
-import { useLeverageContract } from '../hooks/useLeverageContract';
-import { PageLoader } from '../components/Loader';
-import { useAppStore } from '../store/useAppStore';
+import { WalletConnect } from '@/components/WalletConnect';
+import LeveragePanel from '@/components/LeveragePanel';
+import UnwindPanel from '@/components/UnwindPanel';
+import UnwindConfirmModal from '@/components/UnwindConfirmModal';
+import PositionDashboard from '@/components/PositionDashboard';
+import YieldBreakdown from '@/components/YieldBreakdown';
+import DepegChart from '@/components/DepegChart';
+import YieldLeverageChart from '@/components/YieldLeverageChart';
+import { useLeverageContract } from '@/hooks/useLeverageContract';
+import { PageLoader } from '@/components/Loader';
+import { useAppStore } from '@/store/useAppStore';
 
 function VoltIcon() {
   return (

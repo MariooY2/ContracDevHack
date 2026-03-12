@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ReserveInfo } from '../lib/types';
+import type { ReserveInfo } from '@/lib/types';
 
 interface AppState {
   // ── On-chain data ──────────────────────────────────────────────────────────
