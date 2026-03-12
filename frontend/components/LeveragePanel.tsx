@@ -23,7 +23,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
 
   const [deposit, setDeposit] = useState('1');
   const [leverage, setLeverage] = useState(2.0);
-  const [maxLeverage, setMaxLeverage] = useState(18.0);
+  const [maxLeverage, setMaxLeverage] = useState(18.18);
   const [simulation, setSimulation] = useState<{
     flashWethAmount: bigint;
     totalCollateral: bigint;
@@ -45,9 +45,12 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
     if (!isConnected) return;
     try {
       const maxLev = await getMaxSafeLeverage();
-      setMaxLeverage(Math.min(maxLev, 18.0));
+      // Use theoretical max (not the 95% safe version from contract)
+      // Contract returns maxTheoretical * 0.95, so reverse: maxLev / 0.95
+      const theoreticalMax = maxLev / 0.95;
+      setMaxLeverage(Math.min(Math.floor(theoreticalMax * 10) / 10, 18.18));
     } catch {
-      setMaxLeverage(18.0);
+      setMaxLeverage(18.18);
     }
   }, [isConnected, getMaxSafeLeverage]);
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import type { ReserveInfo } from '@/lib/types';
 
@@ -11,6 +12,9 @@ interface YieldLeverageChartProps {
 }
 
 export default function YieldLeverageChart({ reserveInfo, leverage, maxLeverage, hasPosition = false }: YieldLeverageChartProps) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [hoverInfo, setHoverInfo] = useState<{ svgX: number; svgY: number; leverage: number; apy: number } | null>(null);
+
   const stakingYield = reserveInfo?.stakingYield || 3.2;
   const supplyAPY = reserveInfo?.supplyAPY || 0;
   const borrowAPY = reserveInfo?.borrowAPY || 3.0;
@@ -85,6 +89,17 @@ export default function YieldLeverageChart({ reserveInfo, leverage, maxLeverage,
   }
   if (!xTickValues.includes(Math.floor(maxLeverage))) xTickValues.push(Math.floor(maxLeverage));
 
+  const handleMouseMove = (e: React.MouseEvent<SVGRectElement>) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const pt = new DOMPoint(e.clientX, e.clientY);
+    const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse());
+    const clampedX = Math.max(PAD.left, Math.min(svgPt.x, PAD.left + chartW));
+    const lev = minLev + ((clampedX - PAD.left) / chartW) * (maxLeverage - minLev);
+    const apy = netAPY(lev);
+    setHoverInfo({ svgX: toX(lev), svgY: toY(apy), leverage: lev, apy });
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -95,7 +110,7 @@ export default function YieldLeverageChart({ reserveInfo, leverage, maxLeverage,
       <h2 className="text-base font-black gradient-text tracking-tight mb-4">Yield vs Leverage</h2>
 
       <div className="glass-inner p-4">
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
           <defs>
             <linearGradient id="yieldGreenGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#00FFD1" stopOpacity="0.25" />
@@ -171,6 +186,40 @@ export default function YieldLeverageChart({ reserveInfo, leverage, maxLeverage,
               </text>
             </>
           )}
+
+          {/* Hover overlay */}
+          <rect
+            x={PAD.left} y={PAD.top} width={chartW} height={chartH}
+            fill="transparent"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={() => setHoverInfo(null)}
+            style={{ cursor: 'crosshair' }}
+          />
+
+          {/* Hover tooltip */}
+          {hoverInfo && (() => {
+            const flipLeft = hoverInfo.svgX > PAD.left + chartW * 0.75;
+            const tooltipW = 120;
+            const tooltipH = 38;
+            const tx = flipLeft ? hoverInfo.svgX - tooltipW - 10 : hoverInfo.svgX + 10;
+            const ty = Math.max(PAD.top, Math.min(hoverInfo.svgY - tooltipH / 2, PAD.top + chartH - tooltipH));
+            return (
+              <g>
+                <line
+                  x1={hoverInfo.svgX} y1={PAD.top} x2={hoverInfo.svgX} y2={PAD.top + chartH}
+                  stroke="rgba(255,255,255,0.25)" strokeWidth="1" strokeDasharray="4 3"
+                />
+                <circle cx={hoverInfo.svgX} cy={hoverInfo.svgY} r="5" fill="#00FFD1" stroke="#05080F" strokeWidth="2" />
+                <rect x={tx} y={ty} width={tooltipW} height={tooltipH} rx="4" fill="rgba(10,18,36,0.95)" stroke="#00FFD1" strokeWidth="1" />
+                <text x={tx + 8} y={ty + 14} fill="#94a3b8" fontSize="9" fontFamily="monospace">
+                  {hoverInfo.leverage.toFixed(1)}x Leverage
+                </text>
+                <text x={tx + 8} y={ty + 30} fill={hoverInfo.apy >= 0 ? '#00FFD1' : '#FF3366'} fontSize="12" fontWeight="bold" fontFamily="monospace">
+                  {hoverInfo.apy >= 0 ? '+' : ''}{hoverInfo.apy.toFixed(2)}% APY
+                </text>
+              </g>
+            );
+          })()}
         </svg>
       </div>
 

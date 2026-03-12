@@ -10,7 +10,6 @@ import UnwindConfirmModal from '@/components/UnwindConfirmModal';
 import PositionDashboard from '@/components/PositionDashboard';
 import YieldBreakdown from '@/components/YieldBreakdown';
 import DepegChart from '@/components/DepegChart';
-import StethDepegChart from '@/components/StethDepegChart';
 import YieldLeverageChart from '@/components/YieldLeverageChart';
 import { useLeverageContract } from '@/hooks/useLeverageContract';
 import { PageLoader } from '@/components/Loader';
@@ -417,7 +416,7 @@ export default function Home() {
             <YieldLeverageChart
               reserveInfo={reserveInfo}
               leverage={debtBalance > 0n ? currentLeverage : 2.0}
-              maxLeverage={reserveInfo?.maxLeverage || 18.0}
+              maxLeverage={reserveInfo?.maxLeverage || 18.18}
               hasPosition={debtBalance > 0n}
             />
 
@@ -428,7 +427,6 @@ export default function Home() {
 
             <DepegChart reserveInfo={reserveInfo} exchangeRate={exchangeRate} />
 
-            <StethDepegChart />
           </motion.div>
 
           {/* Right column — 1/3 width */}

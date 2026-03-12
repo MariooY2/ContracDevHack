@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { CardLoader } from '@/components/Loader';
 import { getOracleData, clearOracleCache, OracleDataPoint } from '@/lib/oracleCache';
 
@@ -40,6 +40,8 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
   const [fromCache, setFromCache] = useState(false);
   const [cacheAgeMin, setCacheAgeMin] = useState(0);
   const [timeRange, setTimeRange] = useState<string>('All');
+  const [hoverInfo, setHoverInfo] = useState<{ svgX: number; svgY: number; rate: number; date: string } | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
 
   const oraclePoints = useMemo(() => {
     const range = TIME_RANGES.find(r => r.label === timeRange);
@@ -192,6 +194,20 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
     ? ((rates[rates.length - 1] - rates[0]) / rates[0]) * 100
     : 0;
 
+  const handleChartMouseMove = (e: React.MouseEvent<SVGRectElement>) => {
+    const svg = svgRef.current;
+    if (!svg || oraclePoints.length < 2) return;
+    const pt = new DOMPoint(e.clientX, e.clientY);
+    const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse());
+    const clampedX = Math.max(PAD.left, Math.min(svgPt.x, PAD.left + chartW));
+    const fracIdx = ((clampedX - PAD.left) / chartW) * (oraclePoints.length - 1);
+    const idx = Math.max(0, Math.min(Math.round(fracIdx), oraclePoints.length - 1));
+    const point = oraclePoints[idx];
+    const d = new Date(point.timestamp * 1000);
+    const date = d.toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' });
+    setHoverInfo({ svgX: toX(idx), svgY: toY(point.rate), rate: point.rate, date });
+  };
+
   const getRiskLevel = () => {
     if (maxHistoricalDepeg === 0) return { level: 'VERY LOW', color: '#10b981', text: 'No depeg events recorded' };
     const buffer = maxHistoricalDepeg * (1 + SAFETY_BUFFER);
@@ -305,7 +321,7 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
         <>
           {/* Chart */}
           <div className="glass-inner p-4">
-            <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+            <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
               <defs>
                 <linearGradient id="rateGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.25" />
@@ -379,6 +395,40 @@ export default function DepegChart({ reserveInfo, exchangeRate }: DepegChartProp
               <text x={PAD.left + 5} y={PAD.top + 12} fill="#a78bfa" fontSize="10" fontWeight="600" opacity="0.7">
                 wstETH/stETH Exchange Rate
               </text>
+
+              {/* Hover overlay */}
+              <rect
+                x={PAD.left} y={PAD.top} width={chartW} height={chartH}
+                fill="transparent"
+                onMouseMove={handleChartMouseMove}
+                onMouseLeave={() => setHoverInfo(null)}
+                style={{ cursor: 'crosshair' }}
+              />
+
+              {/* Hover tooltip */}
+              {hoverInfo && (() => {
+                const flipLeft = hoverInfo.svgX > PAD.left + chartW * 0.75;
+                const tooltipW = 130;
+                const tooltipH = 38;
+                const tx = flipLeft ? hoverInfo.svgX - tooltipW - 10 : hoverInfo.svgX + 10;
+                const ty = Math.max(PAD.top, Math.min(hoverInfo.svgY - tooltipH / 2, PAD.top + chartH - tooltipH));
+                return (
+                  <g>
+                    <line
+                      x1={hoverInfo.svgX} y1={PAD.top} x2={hoverInfo.svgX} y2={PAD.top + chartH}
+                      stroke="rgba(255,255,255,0.25)" strokeWidth="1" strokeDasharray="4 3"
+                    />
+                    <circle cx={hoverInfo.svgX} cy={hoverInfo.svgY} r="5" fill="#8b5cf6" stroke="#05080F" strokeWidth="2" />
+                    <rect x={tx} y={ty} width={tooltipW} height={tooltipH} rx="4" fill="rgba(10,18,36,0.95)" stroke="#00FFD1" strokeWidth="1" />
+                    <text x={tx + 8} y={ty + 14} fill="#94a3b8" fontSize="9" fontFamily="monospace">
+                      {hoverInfo.date}
+                    </text>
+                    <text x={tx + 8} y={ty + 30} fill="white" fontSize="12" fontWeight="bold" fontFamily="monospace">
+                      Rate: {hoverInfo.rate.toFixed(4)}
+                    </text>
+                  </g>
+                );
+              })()}
             </svg>
 
             {/* Legend */}
