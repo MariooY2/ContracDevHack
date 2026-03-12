@@ -7,38 +7,9 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import "./interfaces/IMorpho.sol";
 import "./interfaces/IMorphoCallbacks.sol";
-
-interface IOracle {
-    function price() external view returns (uint256);
-}
-
-/// @notice Uniswap V3 Router interface
-interface ISwapRouter {
-    struct ExactInputSingleParams {
-        address tokenIn;
-        address tokenOut;
-        uint24 fee;
-        address recipient;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-        uint160 sqrtPriceLimitX96;
-    }
-
-    function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
-}
-
-/// @notice Uniswap V3 pool interface (for price queries)
-interface IUniV3Pool {
-    function slot0() external view returns (
-        uint160 sqrtPriceX96,
-        int24 tick,
-        uint16 observationIndex,
-        uint16 observationCardinality,
-        uint16 observationCardinalityNext,
-        uint8 feeProtocol,
-        bool unlocked
-    );
-}
+import "./interfaces/IOracle.sol";
+import "./interfaces/ISwapRouter.sol";
+import "./interfaces/IUniV3Pool.sol";
 
 /**
  * @title MorphoFlashLoanLeverageHelper
