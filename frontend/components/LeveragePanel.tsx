@@ -34,6 +34,8 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
   const [executing, setExecuting] = useState(false);
   const [txStatus, setTxStatus] = useState('');
   const [showError, setShowError] = useState(false);
+  const [faucetLoading, setFaucetLoading] = useState(false);
+  const [faucetMsg, setFaucetMsg] = useState('');
   const [morphoRates, setMorphoRates] = useState<{
     poolWstethPerWeth: number;
     poolWethPerWsteth: number;
@@ -109,6 +111,30 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
     setExecuting(false);
   };
 
+  const handleFaucet = async () => {
+    if (!address) return;
+    setFaucetLoading(true);
+    setFaucetMsg('');
+    try {
+      const res = await fetch('/api/faucet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFaucetMsg('Funded 1 ETH + 10 wstETH!');
+        onSuccess();
+      } else {
+        setFaucetMsg(data.error || 'Faucet failed');
+      }
+    } catch {
+      setFaucetMsg('Faucet request failed');
+    }
+    setFaucetLoading(false);
+    setTimeout(() => setFaucetMsg(''), 5000);
+  };
+
   const healthColor = simulation
     ? simulation.estimatedHealthFactor > 1.5 ? 'var(--accent-primary)'
     : simulation.estimatedHealthFactor > 1.1 ? 'var(--accent-warning)'
@@ -172,6 +198,28 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
           <p className="text-[10px] font-mono mt-1.5" style={{ color: 'var(--accent-secondary)' }}>
             Exceeds wallet balance
           </p>
+        )}
+        {/* Faucet */}
+        {isConnected && (
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              onClick={handleFaucet}
+              disabled={faucetLoading}
+              className="text-[10px] font-mono font-bold px-3 py-1.5 rounded-lg transition-all hover:opacity-80 disabled:opacity-40"
+              style={{
+                background: 'rgba(167,139,250,0.1)',
+                border: '1px solid rgba(167,139,250,0.3)',
+                color: '#A78BFA',
+              }}
+            >
+              {faucetLoading ? 'Funding...' : 'Faucet: Get 1 ETH + 10 wstETH'}
+            </button>
+            {faucetMsg && (
+              <span className="text-[10px] font-mono font-bold" style={{ color: faucetMsg.includes('Funded') ? 'var(--accent-primary)' : 'var(--accent-secondary)' }}>
+                {faucetMsg}
+              </span>
+            )}
+          </div>
         )}
       </div>
 
