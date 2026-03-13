@@ -41,7 +41,7 @@ contract UnwindMorphoFlashLoan is Script {
         console.log("\n=== Executing Deleverage ===");
 
         // Note: No need to approve anything - authorization was granted during leverage
-        leverageHelper.executeDeleverage();
+        leverageHelper.executeDeleverage(50); // 0.5% slippage
         console.log("Position unwound successfully!");
 
         vm.stopBroadcast();

@@ -2,7 +2,7 @@ import type { Address } from 'viem';
 
 // Morpho Blue on Base
 export const MORPHO_ADDRESSES = {
-  LEVERAGE_HELPER: '0xef11D2f7df1390A14f30F22Ed15f99471fc80414' as Address,
+  LEVERAGE_HELPER: '0x213cca5c8500EC0f189e0F1b7eE90d1768a2BC30' as Address,
   MORPHO_BLUE: '0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb' as Address,
   WSTETH: '0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452' as Address,
   WETH: '0x4200000000000000000000000000000000000006' as Address,
@@ -81,6 +81,7 @@ export const MORPHO_FLASH_LOAN_HELPER_ABI = [
     inputs: [
       { name: 'targetLeverage', type: 'uint256' },
       { name: 'userDeposit', type: 'uint256' },
+      { name: 'maxSlippageBps', type: 'uint256' },
     ],
     name: 'executeLeverage',
     outputs: [],
@@ -88,7 +89,9 @@ export const MORPHO_FLASH_LOAN_HELPER_ABI = [
     type: 'function',
   },
   {
-    inputs: [],
+    inputs: [
+      { name: 'maxSlippageBps', type: 'uint256' },
+    ],
     name: 'executeDeleverage',
     outputs: [],
     stateMutability: 'nonpayable',

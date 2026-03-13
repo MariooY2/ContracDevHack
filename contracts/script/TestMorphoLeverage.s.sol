@@ -52,7 +52,7 @@ contract TestMorphoLeverage is Script {
         (, uint256 existingDebt,) = helper.getUserPosition(user);
         if (existingDebt > 0) {
             console.log("\n[1] Closing existing leveraged position (Deleverage)...");
-            try helper.executeDeleverage() {
+            try helper.executeDeleverage(50) {
                 console.log("    Deleverage SUCCESS");
             } catch Error(string memory reason) {
                 console.log("    Deleverage FAILED:", reason);
@@ -90,7 +90,7 @@ contract TestMorphoLeverage is Script {
 
         // ── Step 4: Execute 2x Leverage ──────────────────────────────────────
         console.log("\n[3] Executing 2x Leverage (1 wstETH deposit)...");
-        try helper.executeLeverage(2e18, 1e18) {
+        try helper.executeLeverage(2e18, 1e18, 50) {
             console.log("    Leverage SUCCESS");
             _logPosition(user, "\n--- After Leverage ---");
         } catch Error(string memory reason) {
@@ -112,7 +112,7 @@ contract TestMorphoLeverage is Script {
 
         // ── Step 5: Close the position (Deleverage) ──────────────────────────
         console.log("\n[4] Closing position (Deleverage)...");
-        try helper.executeDeleverage() {
+        try helper.executeDeleverage(50) {
             console.log("    Deleverage SUCCESS");
             _logPosition(user, "\n--- Final Position ---");
         } catch Error(string memory reason) {

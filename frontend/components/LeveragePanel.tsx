@@ -34,6 +34,8 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
   const [executing, setExecuting] = useState(false);
   const [txStatus, setTxStatus] = useState('');
   const [showError, setShowError] = useState(false);
+  const [slippage, setSlippage] = useState('0.5');
+  const [showSlippageInput, setShowSlippageInput] = useState(false);
   const [faucetLoading, setFaucetLoading] = useState(false);
   const [faucetMsg, setFaucetMsg] = useState('');
   const [morphoRates, setMorphoRates] = useState<{
@@ -92,7 +94,8 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
     setTxStatus('Approving wstETH...');
     try {
       setTxStatus('Authorizing Morpho...');
-      await executeLeverage(leverage, parseFloat(deposit));
+      const slippageBps = Math.round(parseFloat(slippage || '0.5') * 100);
+      await executeLeverage(leverage, parseFloat(deposit), slippageBps);
       setTxStatus('Position opened!');
       onSuccess();
       setTimeout(() => { setTxStatus(''); setShowError(false); }, 4000);
@@ -255,6 +258,73 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
           <span style={{ color: 'var(--text-muted)' }}>1.1× Safe</span>
           <span style={{ color: 'var(--accent-primary)' }}>{maxLeverage.toFixed(1)}× Max</span>
         </div>
+      </div>
+
+      {/* Slippage tolerance */}
+      <div className="mb-5">
+        <div className="flex justify-between items-center mb-2">
+          <Tooltip
+            label="Slippage Tolerance"
+            tip="Maximum price difference you'll accept on the swap. Higher = more likely to execute, but worse price."
+            className="text-[10px] text-(--text-muted) uppercase tracking-[0.15em] font-mono font-bold"
+          />
+          <button
+            onClick={() => setShowSlippageInput(!showSlippageInput)}
+            className="flex items-center gap-1.5 text-xs font-bold font-mono transition-colors hover:opacity-80"
+            style={{ color: parseFloat(slippage) > 1 ? 'var(--accent-warning)' : 'var(--accent-primary)' }}
+          >
+            {slippage}%
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M12 3a9 9 0 1 0 9 9" /><path d="M12 7v5l3 3" />
+            </svg>
+          </button>
+        </div>
+        <AnimatePresence>
+          {showSlippageInput && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="flex items-center gap-2">
+                {['0.1', '0.5', '1.0'].map((val) => (
+                  <button
+                    key={val}
+                    onClick={() => setSlippage(val)}
+                    className="text-[10px] font-mono font-bold px-3 py-1.5 rounded-lg transition-all"
+                    style={{
+                      background: slippage === val ? 'rgba(0,255,209,0.15)' : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${slippage === val ? 'rgba(0,255,209,0.4)' : 'rgba(255,255,255,0.06)'}`,
+                      color: slippage === val ? 'var(--accent-primary)' : 'var(--text-muted)',
+                    }}
+                  >
+                    {val}%
+                  </button>
+                ))}
+                <div className="flex items-center gap-1 flex-1">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0.01"
+                    max="50"
+                    value={slippage}
+                    onChange={(e) => setSlippage(e.target.value)}
+                    className="flex-1 text-center"
+                    style={{ fontSize: '10px', padding: '6px 8px' }}
+                  />
+                  <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>%</span>
+                </div>
+              </div>
+              {parseFloat(slippage) > 3 && (
+                <p className="text-[10px] font-mono mt-1.5" style={{ color: 'var(--accent-warning)' }}>
+                  High slippage — you may receive significantly fewer tokens
+                </p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Simulation results */}

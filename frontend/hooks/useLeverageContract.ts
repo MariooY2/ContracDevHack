@@ -188,7 +188,7 @@ export function useLeverageContract() {
   }, [publicClient]);
 
   // Execute leverage
-  const executeLeverage = async (targetLeverage: number, userDeposit: number) => {
+  const executeLeverage = async (targetLeverage: number, userDeposit: number, slippageBps: number = 50) => {
     if (!walletClient || !address || !publicClient) throw new Error('Wallet not connected');
 
     try {
@@ -242,12 +242,12 @@ export function useLeverageContract() {
         await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      // Step 3: Execute
+      // Step 3: Execute with slippage protection
       const hash = await walletClient.writeContract({
         address: MORPHO_ADDRESSES.LEVERAGE_HELPER,
         abi: MORPHO_FLASH_LOAN_HELPER_ABI,
         functionName: 'executeLeverage',
-        args: [leverageWei, depositWei],
+        args: [leverageWei, depositWei, BigInt(slippageBps)],
         gas: 3000000n,
       });
       return await publicClient.waitForTransactionReceipt({ hash, timeout: 30000 });
@@ -260,7 +260,7 @@ export function useLeverageContract() {
   };
 
   // Execute deleverage
-  const executeDeleverage = async () => {
+  const executeDeleverage = async (slippageBps: number = 50) => {
     if (!walletClient || !address || !publicClient) throw new Error('Wallet not connected');
 
     try {
@@ -286,7 +286,7 @@ export function useLeverageContract() {
         address: MORPHO_ADDRESSES.LEVERAGE_HELPER,
         abi: MORPHO_FLASH_LOAN_HELPER_ABI,
         functionName: 'executeDeleverage',
-        args: [],
+        args: [BigInt(slippageBps)],
         gas: 3000000n,
       });
       try {

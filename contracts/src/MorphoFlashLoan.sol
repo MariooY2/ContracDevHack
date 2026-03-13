@@ -46,11 +46,10 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
     // Constants
     uint24 public constant DEFAULT_POOL_FEE = 100; // Uniswap V3 0.01% fee tier
     uint256 public constant MIN_HEALTH_FACTOR = 1e18; // 1.0 in 18 decimals
-    uint256 public constant MAX_LEVERAGE = 100e18;
+    uint256 public constant MAX_SLIPPAGE_BPS = 500; // 5% max slippage
     uint256 public constant PRECISION = 1e18;
 
     // State
-    mapping(address => bool) public authorizedCallers;
     bool public paused;
 
     // Events
@@ -59,7 +58,8 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
         uint256 totalCollateralWsteth,
         uint256 totalDebtWeth,
         uint256 leverage,
-        uint256 healthFactor
+        uint256 healthFactor,
+        uint256 slippageBps
     );
 
     event PositionUnwound(
@@ -69,8 +69,6 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
         uint256 returnedToUserWsteth
     );
 
-    event AuthorizationChecked(address indexed user, bool isAuthorized);
-    event AuthorizedCallerUpdated(address indexed caller, bool authorized);
     event EmergencyPause(bool paused);
     event EmergencyWithdraw(address indexed token, uint256 amount);
 
@@ -82,7 +80,6 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
     error UnsafeLeverage();
     error TransferFailed();
     error InvalidCaller();
-    error ZeroValue();
     error AuthorizationNotGranted();
     error NoDebtPosition();
     error InsufficientSwapOutput();
@@ -162,13 +159,16 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
      * @dev User must authorize this contract via Morpho.setAuthorization() before calling
      * @param targetLeverage Desired leverage in 18 decimals (e.g. 2e18 = 2x)
      * @param userDeposit Amount of wstETH user wants to deposit
+     * @param maxSlippageBps Maximum slippage in basis points (e.g. 50 = 0.5%)
      */
     function executeLeverage(
         uint256 targetLeverage,
-        uint256 userDeposit
+        uint256 userDeposit,
+        uint256 maxSlippageBps
     ) external whenNotPaused nonReentrant {
-        if (targetLeverage <= PRECISION || targetLeverage > MAX_LEVERAGE) revert InvalidParameters();
+        if (targetLeverage <= PRECISION) revert InvalidParameters();
         if (userDeposit == 0) revert InsufficientDeposit();
+        if (maxSlippageBps > MAX_SLIPPAGE_BPS) revert InvalidParameters();
 
         // Check user has authorized this contract
         if (!IMorpho(MORPHO).isAuthorized(msg.sender, address(this))) {
@@ -188,11 +188,12 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
 
         if (flashWeth == 0) revert InvalidParameters();
 
-        // Encode params for callback
+        // Encode params for callback (includes slippage for swap protection)
         bytes memory params = abi.encode(
             uint8(0), // operation type: 0 = leverage
             msg.sender,
-            userDeposit
+            userDeposit,
+            maxSlippageBps
         );
 
         // Execute flash loan (Morpho flash loans are FREE - no premium)
@@ -226,8 +227,12 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
 
     /**
      * @notice Internal helper for Uniswap V3 exact-input swap
+     * @param tokenIn Input token address
+     * @param tokenOut Output token address
+     * @param amountIn Amount of input token
+     * @param amountOutMinimum Minimum output amount (slippage protection)
      */
-    function _uniV3Swap(address tokenIn, address tokenOut, uint256 amountIn) internal returns (uint256) {
+    function _uniV3Swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOutMinimum) internal returns (uint256) {
         return ISwapRouter(SWAP_ROUTER).exactInputSingle(
             ISwapRouter.ExactInputSingleParams({
                 tokenIn: tokenIn,
@@ -235,12 +240,11 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
                 fee: POOL_FEE,
                 recipient: address(this),
                 amountIn: amountIn,
-                amountOutMinimum: 0,
+                amountOutMinimum: amountOutMinimum,
                 sqrtPriceLimitX96: 0
             })
         );
     }
-
 
     /**
      * @notice Internal handler for leverage operation
@@ -248,13 +252,17 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
      * @param params Encoded parameters
      */
     function _handleLeverage(uint256 flashWeth, bytes calldata params) internal {
-        (, address user, uint256 userDeposit) =
-            abi.decode(params, (uint8, address, uint256));
+        (, address user, uint256 userDeposit, uint256 maxSlippageBps) =
+            abi.decode(params, (uint8, address, uint256, uint256));
 
-        // 1. Swap WETH -> wstETH via Uniswap V3
+        // 1. Swap WETH -> wstETH via Uniswap V3 with slippage protection
         uint256 wstethBefore = IERC20(WSTETH).balanceOf(address(this));
 
-        _uniV3Swap(WETH, WSTETH, flashWeth);
+        // Calculate minimum output: estimate from pool price minus slippage tolerance
+        uint256 expectedWsteth = _getPoolAmountOut(flashWeth, true); // WETH → wstETH estimate
+        uint256 amountOutMinimum = (expectedWsteth * (10000 - maxSlippageBps)) / 10000;
+
+        _uniV3Swap(WETH, WSTETH, flashWeth, amountOutMinimum);
 
         uint256 wstethAfter = IERC20(WSTETH).balanceOf(address(this));
         uint256 wstethFromSwap = wstethAfter - wstethBefore;
@@ -283,8 +291,8 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
         // Verify we borrowed enough to repay
         if (borrowedAssets < flashWeth) revert TransferFailed();
 
-        // Validate final position
-        _validatePosition(user);
+        // Validate final position and emit event with correct values
+        _validatePosition(user, totalWsteth, flashWeth, maxSlippageBps);
     }
 
     /**
@@ -292,8 +300,11 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
      * @dev User must have authorized this contract via Morpho.setAuthorization()
      *      Repays the exact debt, withdraws all collateral, and returns all equity wstETH.
      *      Uses Uniswap V3 for the wstETH→WETH swap with oracle-calculated exact amounts.
+     * @param maxSlippageBps Maximum slippage in basis points (e.g. 50 = 0.5%)
      */
-    function executeDeleverage() external whenNotPaused nonReentrant {
+    function executeDeleverage(uint256 maxSlippageBps) external whenNotPaused nonReentrant {
+        if (maxSlippageBps > MAX_SLIPPAGE_BPS) revert InvalidParameters();
+
         // Check user has authorized this contract
         if (!IMorpho(MORPHO).isAuthorized(msg.sender, address(this))) {
             revert AuthorizationNotGranted();
@@ -322,7 +333,8 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
             uint8(1), // operation type: 1 = deleverage
             msg.sender,
             uint256(collateral),
-            borrowShares
+            borrowShares,
+            maxSlippageBps
         );
 
         IMorpho(MORPHO).flashLoan(WETH, flashAmount, params);
@@ -334,8 +346,8 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
      *      using oracle price (ceiling division), and returns all remaining wstETH to user.
      */
     function _handleDeleverage(uint256 flashWeth, bytes calldata params) internal {
-        (, address user, uint256 collateralAmount, uint128 borrowShares) =
-            abi.decode(params, (uint8, address, uint256, uint128));
+        (, address user, uint256 collateralAmount, uint128 borrowShares, uint256 maxSlippageBps) =
+            abi.decode(params, (uint8, address, uint256, uint128, uint256));
 
         // 1. Repay exact debt using shares — guarantees zero residual debt
         (uint256 assetsRepaid,) = IMorpho(MORPHO).repay(
@@ -362,21 +374,19 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
 
         if (wethDeficit > 0) {
             // Use pool price (not oracle) to calculate swap amount — oracle may differ.
-            // Apply 2% slippage buffer + ceiling division so we never under-swap.
+            // Apply 2% buffer + ceiling division so we never under-swap.
             uint256 poolWethPerWsteth = _getPoolAmountOut(1e18, false); // 1 wstETH → ? WETH
             uint256 wstethToSwap = (wethDeficit * 1e18 * 102 + poolWethPerWsteth * 100 - 1) / (poolWethPerWsteth * 100);
             uint256 availableWsteth = IERC20(WSTETH).balanceOf(address(this));
             if (wstethToSwap > availableWsteth) wstethToSwap = availableWsteth;
 
-            _uniV3Swap(WSTETH, WETH, wstethToSwap);
+            // Calculate slippage-protected minimum: we expect ~wethDeficit from the swap
+            uint256 minWethOut = (wethDeficit * (10000 - maxSlippageBps)) / 10000;
+            _uniV3Swap(WSTETH, WETH, wstethToSwap, minWethOut);
 
-            // If still short (extreme slippage), swap ALL remaining wstETH as safety net.
-            // Surplus WETH beyond flashWeth is returned to the user below.
+            // If first swap didn't cover the deficit, revert rather than swapping at zero slippage
             uint256 wethAfterFirst = IERC20(WETH).balanceOf(address(this));
-            if (wethAfterFirst < flashWeth) {
-                uint256 remaining = IERC20(WSTETH).balanceOf(address(this));
-                if (remaining > 0) _uniV3Swap(WSTETH, WETH, remaining);
-            }
+            if (wethAfterFirst < flashWeth) revert InsufficientSwapOutput();
         }
 
         // Verify flash loan is fully covered before Morpho pulls repayment
@@ -390,6 +400,7 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
         }
 
         // 5. Return any surplus WETH to user
+        // Re-read balance since Morpho hasn't pulled yet; compute surplus
         uint256 surplusWeth = wethFinal > flashWeth ? wethFinal - flashWeth : 0;
         if (surplusWeth > 0) {
             IERC20(WETH).safeTransfer(user, surplusWeth);
@@ -405,6 +416,9 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
      * @return Estimated output amount (18 decimals)
      * @dev token0 = WETH (lower address), token1 = wstETH
      *      slot0.sqrtPriceX96 encodes price of token0 in token1 = wstETH per WETH
+     * @dev WARNING: slot0 is the instantaneous price and can be manipulated within a block.
+     *      This is used only for estimating swap amounts and setting slippage bounds.
+     *      The actual slippage protection is enforced by amountOutMinimum in the swap.
      */
     function _getPoolAmountOut(uint256 amountIn, bool wethToWsteth) internal view returns (uint256) {
         (uint160 sqrtPriceX96,,,,,, ) = IUniV3Pool(UNI_POOL).slot0();
@@ -421,10 +435,12 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
     }
 
     /**
-     * @notice Validate user's position health factor
+     * @notice Validate user's position health factor and emit event
      * @param user User address
+     * @param totalCollateral Total wstETH collateral supplied
+     * @param totalDebt Total WETH debt borrowed
      */
-    function _validatePosition(address user) internal {
+    function _validatePosition(address user, uint256 totalCollateral, uint256 totalDebt, uint256 slippageBps) internal {
         (, uint128 borrowShares, uint128 collateral) = IMorpho(MORPHO).position(MARKET_ID, user);
 
         if (collateral == 0 || borrowShares == 0) revert UnsafeLeverage();
@@ -434,7 +450,13 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
 
         if (healthFactor < MIN_HEALTH_FACTOR) revert UnsafeLeverage();
 
-        emit LeverageExecuted(user, collateral, borrowShares, 0, healthFactor);
+        // Calculate actual leverage: collateralValue / equity
+        uint256 oraclePrice = IOracle(ORACLE).price();
+        uint256 collateralValueEth = (uint256(collateral) * oraclePrice) / 1e36;
+        uint256 equity = collateralValueEth > totalDebt ? collateralValueEth - totalDebt : 0;
+        uint256 actualLeverage = equity > 0 ? (collateralValueEth * PRECISION) / equity : 0;
+
+        emit LeverageExecuted(user, totalCollateral, totalDebt, actualLeverage, healthFactor, slippageBps);
     }
 
     /**
@@ -595,11 +617,6 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
     }
 
     // ====== ADMIN FUNCTIONS ======
-
-    function setAuthorizedCaller(address caller, bool authorized) external onlyOwner {
-        authorizedCallers[caller] = authorized;
-        emit AuthorizedCallerUpdated(caller, authorized);
-    }
 
     function setPaused(bool _paused) external onlyOwner {
         paused = _paused;

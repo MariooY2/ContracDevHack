@@ -90,7 +90,8 @@ contract ExecuteMorphoFlashLoan is Script {
 
         leverageHelper.executeLeverage(
             targetLeverage,
-            depositAmount
+            depositAmount,
+            50 // 0.5% slippage
         );
         console.log("Leverage executed successfully!");
 
