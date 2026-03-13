@@ -154,7 +154,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
   };
   const yieldData = calculateYield();
 
-  const isOverBalance = !isPositionLoading && parseFloat(deposit) > parseFloat(balance);
+  const isOverBalance = isConnected && !isPositionLoading && parseFloat(deposit) > parseFloat(balance);
 
   return (
     <div className="card-glow p-6">
