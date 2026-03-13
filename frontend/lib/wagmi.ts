@@ -18,7 +18,7 @@ export const contractDevBase = defineChain({
 export const config = createConfig({
   ...getDefaultConfig({
     appName: 'VOLT Protocol',
-    walletConnectProjectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || '',
+    walletConnectProjectId: (process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || '').trim(),
     chains: [contractDevBase],
     transports: {
       [contractDevBase.id]: http(BASE_RPC_URL, {
