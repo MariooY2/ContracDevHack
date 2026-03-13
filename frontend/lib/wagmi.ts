@@ -28,4 +28,5 @@ export const config = createConfig({
     },
   }),
   syncConnectedChain: false,
+  ssr: true,
 });
