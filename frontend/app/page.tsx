@@ -6,7 +6,9 @@ import Link from 'next/link';
 import type { AggStats } from '@/components/MarketsTable';
 
 /* ─── CountUp Component ──────────────────────────────────── */
-function CountUp({ value, decimals = 1, suffix = '', prefix = '', commas = false }: { value: number; decimals?: number; suffix?: string; prefix?: string; commas?: boolean }) {
+function CountUp({ value, decimals = 1, suffix = '', prefix = '', commas = false, className = '' }: {
+  value: number; decimals?: number; suffix?: string; prefix?: string; commas?: boolean; className?: string;
+}) {
   const mv = useMotionValue(0);
   const display = useTransform(mv, (v) => {
     const fixed = v.toFixed(decimals);
@@ -24,7 +26,7 @@ function CountUp({ value, decimals = 1, suffix = '', prefix = '', commas = false
   }, [mv, value]);
 
   return (
-    <span className="text-xl sm:text-2xl font-black font-mono gradient-text">
+    <span className={`font-black font-mono gradient-text ${className}`}>
       {prefix}<motion.span>{display}</motion.span>{suffix}
     </span>
   );
@@ -63,6 +65,26 @@ function FlashLoanLoop() {
           </Fragment>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ─── Section Header ─────────────────────────────────────── */
+function SectionHeader({ label, title, description }: { label: string; title: string; description: string }) {
+  return (
+    <div className="text-center mb-12">
+      <p className="font-sans uppercase tracking-[0.2em] font-semibold mb-4" style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+        {label}
+      </p>
+      <h2
+        className="font-sans font-black mb-4"
+        style={{ color: 'var(--text-primary)', fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', letterSpacing: '-0.03em', lineHeight: 1.15 }}
+      >
+        {title}
+      </h2>
+      <p className="font-sans max-w-lg mx-auto" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-body)', lineHeight: 1.6 }}>
+        {description}
+      </p>
     </div>
   );
 }
@@ -110,28 +132,61 @@ const STEPS = [
   },
 ];
 
-/* ─── Protocol Advantages (slim trust badges) ────────────── */
-const TRUST_BADGES = [
-  { title: 'ONE TX', color: '#00FFD1', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg> },
-  { title: 'DEPEG SAFE', color: '#00C2FF', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg> },
-  { title: 'MORPHO BLUE', color: '#A78BFA', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" /></svg> },
-  { title: 'BASE L2', color: '#00FFD1', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg> },
+/* ─── Comparison Items ───────────────────────────────────── */
+const MANUAL_ITEMS = [
+  '4 separate transactions',
+  'Gas costs multiply',
+  'Price exposure between txns',
+  'Manual monitoring required',
+];
+const VOLT_ITEMS = [
+  '1 atomic transaction',
+  'Single gas cost',
+  'Zero price risk (flash loan)',
+  'Built-in risk analytics',
+];
+
+/* ─── Security Features ──────────────────────────────────── */
+const SECURITY_FEATURES = [
+  {
+    title: 'Atomic Execution',
+    desc: 'Flash loans revert the entire transaction if any step fails. No partial state, no stuck funds.',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+      </svg>
+    ),
+  },
+  {
+    title: 'Audited Infrastructure',
+    desc: 'Built on Morpho Blue, audited by Cantina, Spearbit, ChainSecurity, OpenZeppelin, and Trail of Bits.',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </svg>
+    ),
+  },
+  {
+    title: 'Non-Custodial',
+    desc: 'Your keys, your collateral. VOLT never takes custody — positions are held directly on Morpho.',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+        <path d="M7 11V7a5 5 0 0110 0v4" />
+      </svg>
+    ),
+  },
 ];
 
 /* ─── Animation Variants ─────────────────────────────────── */
 const heroContainer = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.15, delayChildren: 0.2 } },
+  visible: { transition: { staggerChildren: 0.15, delayChildren: 1.0 } },
 };
 
 const fadeUpBlur = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.7 } },
-};
-
-const scaleIn = {
-  hidden: { opacity: 0, scale: 0.95 },
-  visible: { opacity: 1, scale: 1, transition: { duration: 0.6 } },
 };
 
 const wordStagger = {
@@ -160,7 +215,6 @@ export default function Home() {
   const heroRef = useRef<HTMLDivElement>(null);
   const [stats, setStats] = useState<AggStats | null>(null);
 
-  // Fetch market stats for TOP OPPORTUNITY card
   useEffect(() => {
     async function load() {
       try {
@@ -183,8 +237,8 @@ export default function Home() {
         const avgBorrowApy = filtered.reduce((s: number, m: { borrowApy: number }) => s + m.borrowApy, 0) / filtered.length;
 
         let topNetApy = 0;
-        let bestMarket: any = null;
-        let pinnedMarket: any = null;
+        let bestMarket: any = null; // eslint-disable-line @typescript-eslint/no-explicit-any
+        let pinnedMarket: any = null; // eslint-disable-line @typescript-eslint/no-explicit-any
         for (const m of filtered) {
           const collYieldDecimal = (yields[m.collateralSymbol] || 2.5) / 100;
           const net = ((m.supplyApy + collYieldDecimal) * FEATURED_LEV - m.borrowApy * (FEATURED_LEV - 1)) * 100;
@@ -199,12 +253,11 @@ export default function Home() {
             lltv: feat.lltv, tvlEth: getTvlEth(feat.supplyAssets), collYield: yields[feat.collateralSymbol] || 0,
           } : null,
         });
-      } catch {}
+      } catch { /* silently ignore */ }
     }
     load();
   }, []);
 
-  // Scroll parallax for hero
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ['start start', 'end start'],
@@ -215,74 +268,13 @@ export default function Home() {
   return (
     <>
       {/* ═══════════════════════════════════════════════════════
-          HERO — Redesigned with visual energy
+          HERO
           ═══════════════════════════════════════════════════════ */}
-      <div ref={heroRef} className="min-h-[calc(100vh-64px)] flex flex-col justify-center relative -mt-6 mb-16">
-        {/* ── Hero Background Composite ── */}
+      <div ref={heroRef} className="min-h-[calc(100vh-64px)] flex flex-col justify-center relative -mt-6 mb-28">
+        {/* Background — single subtle gradient, no excessive effects */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-          {/* 1) Perspective Grid */}
-          <div className="hero-grid absolute inset-0" />
-
-          {/* 2) Radial Pulse Rings */}
-          <div className="hero-rings absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-            <div className="hero-ring hero-ring-1" />
-            <div className="hero-ring hero-ring-2" />
-            <div className="hero-ring hero-ring-3" />
-          </div>
-
-          {/* 3) Gradient Mesh Blobs */}
           <div className="hero-blob hero-blob-cyan" />
           <div className="hero-blob hero-blob-purple" />
-          <div className="hero-blob hero-blob-blue" />
-
-          {/* 4) Orbital Rings with glowing dots */}
-          <svg className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" width="700" height="700" viewBox="0 0 700 700" fill="none" style={{ opacity: 0.25 }}>
-            {/* Orbit path 1 — wide ellipse */}
-            <ellipse cx="350" cy="350" rx="300" ry="120" stroke="rgba(0,255,209,0.08)" strokeWidth="0.5" transform="rotate(-15 350 350)" />
-            <motion.circle
-              r="3" fill="#00FFD1" filter="url(#orb-glow)"
-              initial={{ offsetDistance: '0%' }}
-              animate={{ offsetDistance: '100%' }}
-              transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-              style={{ offsetPath: 'ellipse(300px 120px at 350px 350px)', offsetRotate: '0deg' } as React.CSSProperties}
-            />
-            {/* Orbit path 2 — tighter, tilted */}
-            <ellipse cx="350" cy="350" rx="220" ry="180" stroke="rgba(0,194,255,0.06)" strokeWidth="0.5" transform="rotate(25 350 350)" />
-            <motion.circle
-              r="2.5" fill="#00C2FF" filter="url(#orb-glow-blue)"
-              initial={{ offsetDistance: '0%' }}
-              animate={{ offsetDistance: '100%' }}
-              transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
-              style={{ offsetPath: 'ellipse(220px 180px at 350px 350px)', offsetRotate: '0deg' } as React.CSSProperties}
-            />
-            {/* Orbit path 3 — inner */}
-            <ellipse cx="350" cy="350" rx="160" ry="90" stroke="rgba(167,139,250,0.06)" strokeWidth="0.5" transform="rotate(-40 350 350)" />
-            <motion.circle
-              r="2" fill="#A78BFA" filter="url(#orb-glow-purple)"
-              initial={{ offsetDistance: '0%' }}
-              animate={{ offsetDistance: '100%' }}
-              transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
-              style={{ offsetPath: 'ellipse(160px 90px at 350px 350px)', offsetRotate: '0deg' } as React.CSSProperties}
-            />
-            {/* Glow filters for orbital dots */}
-            <defs>
-              <filter id="orb-glow" x="-200%" y="-200%" width="500%" height="500%">
-                <feGaussianBlur stdDeviation="4" result="blur" />
-                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-              </filter>
-              <filter id="orb-glow-blue" x="-200%" y="-200%" width="500%" height="500%">
-                <feGaussianBlur stdDeviation="3.5" result="blur" />
-                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-              </filter>
-              <filter id="orb-glow-purple" x="-200%" y="-200%" width="500%" height="500%">
-                <feGaussianBlur stdDeviation="3" result="blur" />
-                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-              </filter>
-            </defs>
-          </svg>
-
-          {/* 5) Dot Matrix — radial fade grid */}
-          <div className="hero-dot-matrix absolute inset-0" />
         </div>
 
         <motion.div
@@ -290,24 +282,78 @@ export default function Home() {
           variants={heroContainer}
           initial="hidden"
           animate="visible"
-          className="text-center relative z-10"
+          className="text-center relative z-10 px-4"
         >
-          {/* System init line */}
-          <motion.p
-            variants={fadeUpBlur}
-            className="text-[11px] font-mono tracking-[0.2em] uppercase mb-8"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            {'// VOLT PROTOCOL :: FLASH LEVERAGE ENGINE'}
-          </motion.p>
+          {/* VOLT Wordmark — Electric Charge-In */}
+          <div className="mb-4">
+            <div
+              className="flex items-center justify-center"
+              style={{ fontSize: 'clamp(6rem, 16vw, 12rem)', lineHeight: 1 }}
+            >
+              {['V', 'O', 'L', 'T'].map((letter, i) => (
+                <span
+                  key={letter + i}
+                  className="volt-letter"
+                  style={{
+                    animation: `volt-flicker 0.6s ${0.3 + i * 0.15}s ease-out forwards, volt-glow-pulse 4s ${0.9 + i * 0.15}s ease-in-out infinite`,
+                    position: letter === 'O' ? 'relative' : undefined,
+                  }}
+                >
+                  {letter}
+                  {letter === 'O' && (
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      className="absolute"
+                      style={{
+                        width: '28%', height: '28%',
+                        top: '50%', left: '40%',
+                        transform: 'translate(-50%, -50%)',
+                        opacity: 0.5,
+                      }}
+                    >
+                      <path
+                        d="M13 2L4.09 12.37A1 1 0 0 0 5 14H11L11 22L19.91 11.63A1 1 0 0 0 19 10H13L13 2Z"
+                        fill="#00FFD1"
+                      />
+                    </svg>
+                  )}
+                </span>
+              ))}
+            </div>
 
-          {/* Main headline — word-by-word stagger reveal */}
+            {/* Underline sweep */}
+            <div className="flex justify-center mt-2">
+              <motion.div
+                className="volt-underline"
+                style={{ width: 'min(280px, 60vw)' }}
+                initial={{ scaleX: 0, opacity: 0 }}
+                animate={{ scaleX: 1, opacity: 1 }}
+                transition={{ delay: 1.0, duration: 0.6, ease: 'easeOut' }}
+              />
+            </div>
+
+            {/* PROTOCOL subtitle */}
+            <motion.p
+              className="font-sans tracking-[0.3em] uppercase font-semibold mt-3"
+              style={{ color: 'var(--text-muted)', fontSize: '11px' }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.3, duration: 0.5 }}
+            >
+              PROTOCOL
+            </motion.p>
+          </div>
+
+          {/* Headline — outcome-first */}
           <motion.div variants={fadeUpBlur}>
-            <h1 className="text-5xl sm:text-6xl md:text-7xl font-black tracking-tight leading-[1.05] mb-6"
-                style={{ color: 'var(--text-primary)' }}>
+            <h1
+              className="font-black leading-[1.05] mb-6"
+              style={{ fontSize: 'clamp(2.5rem, 7vw, 4.5rem)', letterSpacing: '-0.03em', color: 'var(--text-primary)' }}
+            >
               <motion.span variants={wordStagger} initial="hidden" animate="visible"
                            className="inline-flex flex-wrap justify-center gap-x-[0.3em]">
-                {['Flash', 'Leverage'].map((word) => (
+                {['Amplify', 'Your'].map((word) => (
                   <motion.span key={word} variants={wordReveal} className="inline-block">
                     {word}
                   </motion.span>
@@ -316,7 +362,7 @@ export default function Home() {
               <br />
               <motion.span variants={wordStagger} initial="hidden" animate="visible"
                            className="inline-flex flex-wrap justify-center gap-x-[0.3em]">
-                {['for', 'Liquid', 'Staking'].map((word) => (
+                {['Staking', 'Yield'].map((word) => (
                   <motion.span key={word} variants={wordReveal}
                                className="inline-block gradient-text-animated">
                     {word}
@@ -326,50 +372,77 @@ export default function Home() {
             </h1>
           </motion.div>
 
-          {/* Subline */}
+          {/* Subheadline — sans-serif for readability */}
           <motion.p
             variants={fadeUpBlur}
-            className="text-sm sm:text-base font-mono max-w-2xl mx-auto leading-relaxed mb-6"
-            style={{ color: 'var(--text-secondary)' }}
+            className="font-sans max-w-lg mx-auto mb-8"
+            style={{ color: 'var(--text-secondary)', fontSize: 'clamp(0.95rem, 2vw, 1.125rem)', lineHeight: 1.65 }}
           >
-            Atomic flash loan loops on Morpho Blue. Deposit once, amplify up to 18x.
-            <br className="hidden sm:block" />
-            One click. One transaction. Maximum capital efficiency.
+            Atomic flash loan leverage on Morpho Blue.
+            Deposit once, amplify up to 28x — one transaction, zero execution risk.
           </motion.p>
 
-          {/* CTA — spring physics */}
-          <motion.div variants={fadeUpBlur}>
+          {/* CTAs */}
+          <motion.div variants={fadeUpBlur} className="flex items-center justify-center gap-3 flex-wrap mb-12">
             <Link href="/markets">
               <motion.div
                 className="btn-primary w-auto inline-flex items-center justify-center gap-2 px-10 cursor-pointer"
-                whileHover={{ scale: 1.05, boxShadow: '0 8px 50px rgba(0,255,209,0.5), 0 0 100px rgba(0,255,209,0.2)' }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                whileHover={{ scale: 1.03, boxShadow: '0 8px 40px rgba(0,255,209,0.35)' }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
               >
-                LAUNCH APP
+                Launch App
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 18l6-6-6-6" />
+                  <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
               </motion.div>
             </Link>
+            <Link
+              href="/learn"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-sans font-semibold transition-all hover:bg-white/[0.04]"
+              style={{ fontSize: 'var(--text-caption)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+            >
+              How It Works
+            </Link>
           </motion.div>
-        </motion.div>
 
+          {/* Stats strip — large numbers */}
+          {stats && (
+            <motion.div variants={fadeUpBlur} className="flex justify-center">
+              <div className="stat-strip inline-flex px-2">
+                <div className="stat-strip-item">
+                  <span className="font-sans uppercase tracking-[0.15em] font-semibold" style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Total TVL</span>
+                  <CountUp value={stats.totalTvl} decimals={0} suffix=" ETH" commas className="text-2xl sm:text-3xl" />
+                </div>
+                <div className="stat-strip-item">
+                  <span className="font-sans uppercase tracking-[0.15em] font-semibold" style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Markets</span>
+                  <CountUp value={stats.marketCount} decimals={0} className="text-2xl sm:text-3xl" />
+                </div>
+                <div className="stat-strip-item">
+                  <span className="font-sans uppercase tracking-[0.15em] font-semibold" style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Top Net APY</span>
+                  <CountUp value={stats.topNetApy} decimals={1} suffix="%" className="text-2xl sm:text-3xl" />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </motion.div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════
-          HOW IT WORKS — Connected Flow
+          HOW IT WORKS — Connected Flow (preserved)
           ═══════════════════════════════════════════════════════ */}
       <motion.div
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true, margin: '-80px' }}
         transition={{ duration: 0.5 }}
-        className="mb-16"
+        className="mb-28"
       >
-        <div className="section-label mb-8">
-          <span>HOW IT WORKS</span>
-        </div>
+        <SectionHeader
+          label="HOW IT WORKS"
+          title="One Transaction. Maximum Exposure."
+          description="VOLT handles the entire leverage loop atomically — no manual steps, no price exposure between transactions."
+        />
 
         {/* Desktop: horizontal flow with connectors */}
         <div className="hidden md:flex items-stretch gap-0 max-w-5xl mx-auto">
@@ -403,8 +476,8 @@ export default function Home() {
                 >
                   {step.icon}
                 </div>
-                <h3 className="text-[15px] font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{step.title}</h3>
-                <p className="text-[12px] font-mono leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{step.desc}</p>
+                <h3 className="font-sans font-bold mb-2" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-body)' }}>{step.title}</h3>
+                <p className="font-sans leading-relaxed" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }}>{step.desc}</p>
                 {step.extra === 'flash-loop' && <FlashLoanLoop />}
               </motion.div>
 
@@ -448,8 +521,8 @@ export default function Home() {
                   {step.icon}
                 </div>
                 <div>
-                  <h3 className="text-[14px] font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{step.title}</h3>
-                  <p className="text-[11px] font-mono leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{step.desc}</p>
+                  <h3 className="font-sans font-bold mb-1" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-body)' }}>{step.title}</h3>
+                  <p className="font-sans leading-relaxed" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }}>{step.desc}</p>
                 </div>
               </div>
             </motion.div>
@@ -458,105 +531,189 @@ export default function Home() {
       </motion.div>
 
       {/* ═══════════════════════════════════════════════════════
-          TRUST STRIP — Slim advantage badges
+          WHY VOLT — Comparison
           ═══════════════════════════════════════════════════════ */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.4 }}
-        className="mb-16"
+        viewport={{ once: true, margin: '-60px' }}
+        transition={{ duration: 0.5 }}
+        className="mb-28"
       >
-        <div className="flex justify-center items-center gap-3 sm:gap-5 flex-wrap">
-          {TRUST_BADGES.map((b) => (
-            <div
-              key={b.title}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl"
-              style={{ background: `${b.color}06`, border: `1px solid ${b.color}15` }}
-            >
-              <span style={{ color: b.color }}>{b.icon}</span>
-              <span className="text-[10px] font-mono font-bold tracking-[0.08em]" style={{ color: b.color }}>
-                {b.title}
-              </span>
+        <SectionHeader
+          label="WHY VOLT"
+          title="Traditional Leverage is Broken"
+          description="Manual leveraging requires multiple transactions with price exposure between each step. VOLT replaces the entire process with a single atomic operation."
+        />
+
+        <div className="grid md:grid-cols-2 gap-5 max-w-3xl mx-auto">
+          {/* Manual */}
+          <div
+            className="p-6 rounded-2xl"
+            style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.06)' }}
+          >
+            <p className="font-sans uppercase tracking-[0.15em] font-semibold mb-5" style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+              Manual Leverage
+            </p>
+            <div className="space-y-3.5">
+              {MANUAL_ITEMS.map((text) => (
+                <div key={text} className="flex items-center gap-3">
+                  <span
+                    className="w-5 h-5 rounded flex items-center justify-center shrink-0 font-bold"
+                    style={{ background: 'rgba(255,51,102,0.08)', color: '#FF3366', fontSize: '10px' }}
+                  >
+                    ✕
+                  </span>
+                  <span className="font-sans" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-body)' }}>{text}</span>
+                </div>
+              ))}
             </div>
+          </div>
+
+          {/* VOLT */}
+          <div
+            className="p-6 rounded-2xl relative overflow-hidden"
+            style={{ background: 'rgba(0,255,209,0.02)', border: '1px solid rgba(0,255,209,0.12)' }}
+          >
+            <div className="absolute top-0 left-0 right-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(0,255,209,0.3), transparent)' }} />
+            <p className="font-sans uppercase tracking-[0.15em] font-semibold mb-5" style={{ color: 'var(--accent-primary)', fontSize: '11px' }}>
+              VOLT Protocol
+            </p>
+            <div className="space-y-3.5">
+              {VOLT_ITEMS.map((text) => (
+                <div key={text} className="flex items-center gap-3">
+                  <span
+                    className="w-5 h-5 rounded flex items-center justify-center shrink-0 font-bold"
+                    style={{ background: 'rgba(0,255,209,0.08)', color: 'var(--accent-primary)', fontSize: '10px' }}
+                  >
+                    ✓
+                  </span>
+                  <span className="font-sans" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-body)' }}>{text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <p className="font-sans font-medium text-center mt-6" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-body)' }}>
+          Same result. <span style={{ color: 'var(--accent-primary)' }}>75% less gas.</span> Zero execution risk.
+        </p>
+      </motion.div>
+
+      {/* ═══════════════════════════════════════════════════════
+          SECURITY
+          ═══════════════════════════════════════════════════════ */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-60px' }}
+        transition={{ duration: 0.5 }}
+        className="mb-28"
+      >
+        <SectionHeader
+          label="SECURITY"
+          title="Built on Audited Infrastructure"
+          description="VOLT leverages Morpho Blue's battle-tested lending protocol, audited by five leading security firms."
+        />
+
+        <div className="grid md:grid-cols-3 gap-5 max-w-4xl mx-auto mb-10">
+          {SECURITY_FEATURES.map((feature, i) => (
+            <motion.div
+              key={feature.title}
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.08, duration: 0.4 }}
+              className="p-6 rounded-2xl text-center transition-all duration-300"
+              style={{ background: 'rgba(10, 15, 31, 0.6)', border: '1px solid var(--border)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(0,255,209,0.12)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-4"
+                style={{ background: 'rgba(0,255,209,0.06)', color: 'var(--accent-primary)' }}
+              >
+                {feature.icon}
+              </div>
+              <h3 className="font-sans font-bold mb-2" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-body)' }}>
+                {feature.title}
+              </h3>
+              <p className="font-sans leading-relaxed" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }}>
+                {feature.desc}
+              </p>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Auditor names — borrowed trust */}
+        <div className="flex items-center justify-center gap-6 sm:gap-10 flex-wrap">
+          {['Cantina', 'Spearbit', 'ChainSecurity', 'OpenZeppelin', 'Trail of Bits'].map((name) => (
+            <span
+              key={name}
+              className="font-sans font-medium opacity-25 hover:opacity-50 transition-opacity duration-300"
+              style={{ color: 'var(--text-secondary)', fontSize: '12px', letterSpacing: '0.05em' }}
+            >
+              {name}
+            </span>
           ))}
         </div>
       </motion.div>
 
+
+
       {/* ═══════════════════════════════════════════════════════
-          TOP OPPORTUNITY — Highlighted best market
+          FINAL CTA
           ═══════════════════════════════════════════════════════ */}
-      {stats?.topMarket && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-60px' }}
-          transition={{ duration: 0.5 }}
-          className="mb-16"
-        >
-          <div className="section-label mb-6">
-            <span>TOP OPPORTUNITY</span>
-          </div>
-
-          <div
-            className="max-w-2xl mx-auto p-6 rounded-2xl text-center relative overflow-hidden"
-            style={{
-              background: 'rgba(10, 15, 31, 0.9)',
-              border: '1px solid rgba(0,255,209,0.15)',
-              boxShadow: '0 0 60px rgba(0,255,209,0.04), 0 24px 64px rgba(0,0,0,0.3)',
-            }}
+      <motion.div
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true, margin: '-60px' }}
+        transition={{ duration: 0.5 }}
+        className="mb-16 text-center py-20 relative"
+      >
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 50% 40% at 50% 50%, rgba(0,255,209,0.03) 0%, transparent 70%)' }}
+        />
+        <div className="relative z-10">
+          <h2
+            className="font-sans font-black mb-4"
+            style={{ color: 'var(--text-primary)', fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', letterSpacing: '-0.03em' }}
           >
-            {/* Gradient top edge */}
-            <div className="absolute top-0 left-0 right-0 h-px" style={{ background: 'var(--grad-card-top)' }} />
-            {/* Glow */}
-            <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at center top, rgba(0,255,209,0.05) 0%, transparent 60%)' }} />
-
-            <div className="relative z-10">
-              <p className="text-[10px] font-mono uppercase tracking-[0.2em] font-bold mb-3" style={{ color: 'var(--text-muted)' }}>
-                Highest Risk-Adjusted Yield
-              </p>
-              <h3 className="text-xl font-black mb-2" style={{ color: 'var(--text-primary)' }}>
-                {stats.topMarket.pair}
-              </h3>
-              <p className="text-5xl font-black gradient-text font-mono leading-none mb-2">
-                {stats.topMarket.netApy.toFixed(1)}%
-              </p>
-              <p className="text-xs font-mono mb-5" style={{ color: 'var(--text-secondary)' }}>
-                Net APY at {stats.topMarket.leverage}x leverage
-              </p>
-
-              {/* Mini stats */}
-              <div className="flex justify-center gap-4 mb-5 flex-wrap">
-                <div className="stat-chip">
-                  <span className="stat-label">LLTV</span>
-                  <span className="stat-value">{(stats.topMarket.lltv * 100).toFixed(1)}%</span>
-                </div>
-                <div className="stat-chip">
-                  <span className="stat-label">TVL</span>
-                  <span className="stat-value">{stats.topMarket.tvlEth >= 1000 ? `${(stats.topMarket.tvlEth / 1000).toFixed(1)}K` : stats.topMarket.tvlEth.toFixed(0)} ETH</span>
-                </div>
-                {stats.topMarket.collYield > 0 && (
-                  <div className="stat-chip">
-                    <span className="stat-label">Coll Yield</span>
-                    <span className="stat-value" style={{ color: 'var(--accent-info)' }}>{stats.topMarket.collYield.toFixed(2)}%</span>
-                  </div>
-                )}
-              </div>
-
-              <Link
-                href={`/markets/${stats.topMarket.uniqueKey}`}
-                className="btn-primary inline-flex items-center gap-2 px-8"
+            Ready to Amplify Your Yield?
+          </h2>
+          <p className="font-sans max-w-md mx-auto mb-8" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-body)' }}>
+            One transaction. Maximum capital efficiency. Zero execution risk.
+          </p>
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <Link href="/markets">
+              <motion.div
+                className="btn-primary w-auto inline-flex items-center justify-center gap-2 px-10 cursor-pointer"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
               >
-                Open Market
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 18l6-6-6-6" />
+                Launch App
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
-              </Link>
-            </div>
+              </motion.div>
+            </Link>
+            <Link
+              href="/learn"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-sans font-semibold transition-all hover:bg-white/[0.04]"
+              style={{ fontSize: 'var(--text-caption)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+            >
+              Learn More
+            </Link>
           </div>
-        </motion.div>
-      )}
-
+        </div>
+      </motion.div>
     </>
   );
 }

@@ -7,6 +7,7 @@ import { useLeverageContract } from '@/hooks/useLeverageContract';
 import { useAppStore } from '@/store/useAppStore';
 import type { ReserveInfo } from '@/lib/types';
 import Tooltip from '@/components/Tooltip';
+import TransactionStepper, { type TxStep, type TxStepStatus } from '@/components/ui/TransactionStepper';
 
 interface LeveragePanelProps {
   onSuccess: () => void;
@@ -14,14 +15,16 @@ interface LeveragePanelProps {
   exchangeRate: number;
 }
 
+const LEVERAGE_PRESETS = [2, 5, 10] as const;
+
 export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: LeveragePanelProps) {
-  const { isConnected, simulateLeverage, getMaxSafeLeverage, executeLeverage, address, getMorphoExchangeRates } = useLeverageContract();
+  const { isConnected, simulateLeverage, getMaxSafeLeverage, executeLeverage, address } = useLeverageContract();
 
   const walletBalance = useAppStore((s) => s.walletBalance);
   const isPositionLoading = useAppStore((s) => s.isPositionLoading);
   const balance = Number(formatEther(walletBalance)).toFixed(4);
 
-  const [deposit, setDeposit] = useState('1');
+  const [deposit, setDeposit] = useState('');
   const [leverage, setLeverage] = useState(2.0);
   const [maxLeverage, setMaxLeverage] = useState(18.0);
   const [simulation, setSimulation] = useState<{
@@ -34,12 +37,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
   const [executing, setExecuting] = useState(false);
   const [txStatus, setTxStatus] = useState('');
   const [showError, setShowError] = useState(false);
-  const [morphoRates, setMorphoRates] = useState<{
-    poolWstethPerWeth: number;
-    poolWethPerWsteth: number;
-    oracleWethPerWsteth: number;
-    premiumPct: number;
-  } | null>(null);
+  const [txStep, setTxStep] = useState<TxStep | null>(null);
 
   const loadMaxLeverage = useCallback(async () => {
     if (!isConnected) return;
@@ -53,12 +51,6 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
 
   useEffect(() => { loadMaxLeverage(); }, [loadMaxLeverage]);
   useEffect(() => { if (leverage > maxLeverage) setLeverage(maxLeverage); }, [maxLeverage]);
-
-  // Fetch Morpho pool exchange rates
-  useEffect(() => {
-    if (!isConnected) return;
-    getMorphoExchangeRates().then(r => r && setMorphoRates(r)).catch(() => {});
-  }, [isConnected, getMorphoExchangeRates]);
 
   const runSimulation = useCallback(async () => {
     if (!isConnected || !deposit || parseFloat(deposit) <= 0 || leverage <= 1) {
@@ -84,13 +76,16 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
     if (!simulation || !address) return;
     setExecuting(true);
     setShowError(false);
+    setTxStep('approve');
     setTxStatus('Approving wstETH...');
     try {
+      setTxStep('authorize');
       setTxStatus('Authorizing Morpho...');
       await executeLeverage(leverage, parseFloat(deposit));
+      setTxStep('confirm');
       setTxStatus('Position opened!');
       onSuccess();
-      setTimeout(() => { setTxStatus(''); setShowError(false); }, 4000);
+      setTimeout(() => { setTxStatus(''); setShowError(false); setTxStep(null); }, 4000);
     } catch (err: any) {
       const msg = err.message || err.toString();
       let display = 'Transaction failed';
@@ -102,6 +97,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
       else display = msg.slice(0, 150);
       setTxStatus(display);
       setShowError(true);
+      setTxStep(null);
     }
     setExecuting(false);
   };
@@ -126,7 +122,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
 
   return (
     <div className="card-glow p-6">
-      <h2 className="text-base font-black gradient-text tracking-tight mb-4">Open Position</h2>
+      <h2 className="font-black gradient-text tracking-tight mb-4" style={{ fontSize: 'var(--text-h2)' }}>Open Position</h2>
 
       {/* Info banner */}
       <div
@@ -137,7 +133,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
           <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
           <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
         </svg>
-        <p className="text-[10px] leading-relaxed font-mono" style={{ color: 'var(--text-secondary)' }}>
+        <p className="font-sans leading-relaxed" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-micro)' }}>
           Deposits wstETH as collateral, borrows WETH via flash loan, swaps for amplified staking exposure.
         </p>
       </div>
@@ -145,13 +141,13 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
       {/* Deposit input */}
       <div className="mb-5">
         <div className="flex justify-between items-center mb-2">
-          <label className="text-[10px] text-(--text-muted) uppercase tracking-[0.15em] font-mono font-bold">
+          <label className="font-sans uppercase tracking-wider font-bold" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-micro)' }}>
             Deposit (wstETH)
           </label>
           <button
             onClick={() => setDeposit(balance)}
-            className="text-[10px] font-mono font-bold transition-colors hover:opacity-80"
-            style={{ color: 'var(--accent-primary)' }}
+            className="font-mono font-bold transition-colors hover:opacity-80"
+            style={{ color: 'var(--accent-primary)', fontSize: 'var(--text-micro)' }}
           >
             MAX: {balance}
           </button>
@@ -166,30 +162,65 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
           style={{ borderColor: isOverBalance ? 'rgba(255,51,102,0.5)' : undefined }}
         />
         {isOverBalance && (
-          <p className="text-[10px] font-mono mt-1.5" style={{ color: 'var(--accent-secondary)' }}>
+          <p className="font-sans mt-1.5" style={{ color: 'var(--accent-secondary)', fontSize: 'var(--text-micro)' }}>
             Exceeds wallet balance
           </p>
         )}
       </div>
 
-      {/* Leverage slider */}
+      {/* Leverage section */}
       <div className="mb-5">
         <div className="flex justify-between items-center mb-3">
           <Tooltip
             label="Leverage"
             tip="Multiplier on your wstETH exposure. Higher = more yield but closer to liquidation."
-            className="text-[10px] text-(--text-muted) uppercase tracking-[0.15em] font-mono font-bold"
+            className="font-sans uppercase tracking-wider font-bold"
+            style={{ color: 'var(--text-muted)', fontSize: 'var(--text-micro)' }}
           />
           <motion.span
             key={leverage.toFixed(1)}
             initial={{ scale: 0.9, opacity: 0.6 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="text-2xl font-black font-mono"
-            style={{ color: healthColor }}
+            className="font-black font-mono"
+            style={{ color: healthColor, fontSize: 'var(--text-h1)' }}
           >
             {leverage.toFixed(1)}×
           </motion.span>
         </div>
+
+        {/* Preset buttons */}
+        <div className="flex items-center gap-2 mb-3">
+          {LEVERAGE_PRESETS.map(preset => (
+            <button
+              key={preset}
+              onClick={() => setLeverage(Math.min(preset, maxLeverage))}
+              className="flex-1 py-1.5 rounded-lg font-mono font-bold transition-all"
+              style={{
+                fontSize: 'var(--text-caption)',
+                background: Math.abs(leverage - preset) < 0.1 ? 'rgba(0,255,209,0.12)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${Math.abs(leverage - preset) < 0.1 ? 'rgba(0,255,209,0.25)' : 'var(--border)'}`,
+                color: Math.abs(leverage - preset) < 0.1 ? 'var(--accent-primary)' : 'var(--text-muted)',
+                opacity: preset > maxLeverage ? 0.3 : 1,
+              }}
+              disabled={preset > maxLeverage}
+            >
+              {preset}x
+            </button>
+          ))}
+          <button
+            onClick={() => setLeverage(maxLeverage)}
+            className="flex-1 py-1.5 rounded-lg font-mono font-bold transition-all"
+            style={{
+              fontSize: 'var(--text-caption)',
+              background: Math.abs(leverage - maxLeverage) < 0.1 ? 'rgba(0,255,209,0.12)' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${Math.abs(leverage - maxLeverage) < 0.1 ? 'rgba(0,255,209,0.25)' : 'var(--border)'}`,
+              color: Math.abs(leverage - maxLeverage) < 0.1 ? 'var(--accent-primary)' : 'var(--text-muted)',
+            }}
+          >
+            Max
+          </button>
+        </div>
+
         <input
           type="range"
           min="1.1"
@@ -200,11 +231,54 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
           className="slider-fill"
           style={{ '--slider-pct': `${((leverage - 1.1) / (maxLeverage - 1.1)) * 100}%` } as React.CSSProperties}
         />
-        <div className="flex justify-between text-[10px] font-mono mt-1.5">
+        <div className="flex justify-between font-mono mt-1.5" style={{ fontSize: 'var(--text-micro)' }}>
           <span style={{ color: 'var(--text-muted)' }}>1.1× Safe</span>
           <span style={{ color: 'var(--accent-primary)' }}>{maxLeverage.toFixed(1)}× Max</span>
         </div>
       </div>
+
+      {/* Inline yield preview */}
+      {yieldData && (
+        <div
+          className="rounded-xl p-3 mb-4 flex items-center justify-between"
+          style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}
+        >
+          <div>
+            <span className="font-sans uppercase tracking-wider font-bold" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-micro)' }}>
+              Net APY at {leverage.toFixed(1)}×
+            </span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span
+                className="font-mono font-bold"
+                style={{
+                  fontSize: 'var(--text-h2)',
+                  color: yieldData.netAPY > 0 ? 'var(--color-success)' : 'var(--accent-secondary)',
+                }}
+              >
+                {yieldData.netAPY > 0 ? '+' : ''}{yieldData.netAPY.toFixed(2)}%
+              </span>
+              {deposit && parseFloat(deposit) > 0 && (
+                <span className="font-mono" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-micro)' }}>
+                  ≈ {((yieldData.netAPY / 100) * parseFloat(deposit) * exchangeRate).toFixed(4)} ETH/yr
+                </span>
+              )}
+            </div>
+          </div>
+          {/* Mini health indicator */}
+          {simulation && (
+            <div className="flex flex-col items-center">
+              <div
+                className={`w-3 h-3 rounded-full mb-1 ${simulation.estimatedHealthFactor > 1.5 ? 'pulse-safe' : 'pulse-danger'}`}
+                style={{ background: healthColor }}
+              />
+              <span className="font-mono font-bold" style={{ color: healthColor, fontSize: 'var(--text-caption)' }}>
+                {simulation.estimatedHealthFactor.toFixed(2)}
+              </span>
+              <span className="font-sans" style={{ color: 'var(--text-muted)', fontSize: '7px' }}>HF</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Simulation results */}
       <AnimatePresence>
@@ -216,22 +290,21 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
             transition={{ duration: 0.25 }}
             className="glass-inner p-4 mb-4 space-y-3 overflow-hidden"
           >
-            <p className="text-[9px] text-(--text-muted) uppercase tracking-[0.2em] font-mono font-bold">
+            <p className="font-sans uppercase tracking-wider font-bold" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-micro)' }}>
               Position Preview
             </p>
             <div className="flex justify-between">
-              <span className="text-xs text-(--text-secondary) font-mono">Total Collateral</span>
-              <span className="text-xs font-bold font-mono" style={{ color: 'var(--accent-primary)' }}>
+              <span className="font-sans" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }}>Total Collateral</span>
+              <span className="font-mono font-bold" style={{ color: 'var(--accent-primary)', fontSize: 'var(--text-caption)' }}>
                 {Number(formatEther(simulation.totalCollateral)).toFixed(4)} wstETH
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-xs text-(--text-secondary) font-mono">Total Debt</span>
-              <span className="text-xs font-bold font-mono" style={{ color: 'var(--accent-warning)' }}>
+              <span className="font-sans" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }}>Total Debt</span>
+              <span className="font-mono font-bold" style={{ color: 'var(--accent-warning)', fontSize: 'var(--text-caption)' }}>
                 {Number(formatEther(simulation.totalDebt)).toFixed(4)} WETH
               </span>
             </div>
-            {/* Financial leverage computed from simulation + oracle price */}
             {(() => {
               const collateralWeth = Number(formatEther(simulation.totalCollateral)) * exchangeRate;
               const debtWeth = Number(formatEther(simulation.totalDebt));
@@ -239,52 +312,38 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
               const finLev = equity > 0 ? collateralWeth / equity : 0;
               return (
                 <div className="flex justify-between">
-                  <span className="text-xs text-(--text-secondary) font-mono">Financial Leverage</span>
-                  <span className="text-xs font-bold font-mono" style={{ color: 'var(--accent-info)' }}>
+                  <span className="font-sans" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }}>Financial Leverage</span>
+                  <span className="font-mono font-bold" style={{ color: 'var(--accent-info)', fontSize: 'var(--text-caption)' }}>
                     {finLev.toFixed(2)}×
                   </span>
                 </div>
               );
             })()}
-            {/* Uniswap V3 exchange rate */}
-            {morphoRates && (
-              <>
-                <div className="divider" />
-                <p className="text-[9px] text-(--text-muted) uppercase tracking-[0.15em] font-mono font-bold">
-                  Uniswap V3 Pool Rate
-                </p>
-                <div className="flex justify-between">
-                  <span className="text-xs text-(--text-secondary) font-mono">1 wstETH → WETH</span>
-                  <span className="text-xs font-bold font-mono" style={{ color: 'var(--text-primary)' }}>
-                    {morphoRates.poolWethPerWsteth.toFixed(4)} WETH
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-xs text-(--text-secondary) font-mono">Oracle price</span>
-                  <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
-                    {morphoRates.oracleWethPerWsteth.toFixed(4)} WETH
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-xs text-(--text-secondary) font-mono">Pool vs Oracle</span>
-                  <span
-                    className="text-xs font-bold font-mono"
-                    style={{ color: morphoRates.premiumPct >= 0 ? 'var(--accent-primary)' : 'var(--accent-warning)' }}
-                  >
-                    {morphoRates.premiumPct >= 0 ? '+' : ''}{morphoRates.premiumPct.toFixed(2)}%
-                  </span>
-                </div>
-              </>
-            )}
+            <div className="divider" />
+            <p className="font-sans uppercase tracking-wider font-bold" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-micro)' }}>
+              Exchange Rate
+            </p>
+            <div className="flex justify-between">
+              <span className="font-sans" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }}>1 wstETH</span>
+              <span className="font-mono font-bold" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-caption)' }}>
+                {exchangeRate.toFixed(4)} WETH
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-sans" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }}>Swap via</span>
+              <span className="font-mono" style={{ color: 'var(--accent-info)', fontSize: 'var(--text-caption)' }}>
+                LiFi (best route)
+              </span>
+            </div>
             <div className="divider" />
             <div className="flex justify-between items-center">
-              <Tooltip label="Health Factor" tip="Below 1.0 triggers liquidation. Keep above 1.5 for safety." className="text-xs text-(--text-secondary) font-mono" />
+              <Tooltip label="Health Factor" tip="Below 1.0 triggers liquidation. Keep above 1.5 for safety." className="font-sans" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }} />
               <div className="flex items-center gap-2">
                 <div
                   className={`w-2 h-2 rounded-full ${simulation.estimatedHealthFactor > 1.5 ? 'pulse-safe' : 'pulse-danger'}`}
                   style={{ background: healthColor }}
                 />
-                <span className="text-base font-black font-mono" style={{ color: healthColor }}>
+                <span className="font-black font-mono" style={{ color: healthColor, fontSize: 'var(--text-h2)' }}>
                   {simulation.estimatedHealthFactor.toFixed(3)}
                 </span>
               </div>
@@ -297,48 +356,9 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
       {loading && !simulation && (
         <div className="glass-inner p-5 mb-4 flex items-center justify-center gap-3">
           <div className="loader-bars"><span/><span/><span/><span/></div>
-          <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>Simulating...</span>
+          <span className="font-sans" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-caption)' }}>Simulating...</span>
         </div>
       )}
-
-      {/* Yield preview */}
-      <AnimatePresence>
-        {yieldData && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="glass-inner p-4 mb-4"
-          >
-            <div className="flex justify-between items-center mb-3">
-              <p className="text-[9px] text-(--text-muted) uppercase tracking-[0.2em] font-mono font-bold">
-                Expected at {leverage.toFixed(1)}×
-              </p>
-              <span
-                className="text-base font-black font-mono"
-                style={{ color: yieldData.netAPY > 0 ? 'var(--accent-primary)' : 'var(--accent-secondary)' }}
-              >
-                {yieldData.netAPY > 0 ? '+' : ''}{yieldData.netAPY.toFixed(2)}%
-              </span>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-[10px] font-mono">
-                <span style={{ color: 'var(--text-muted)' }}>Staking yield ({leverage.toFixed(1)}×)</span>
-                <span style={{ color: 'var(--accent-primary)' }}>+{(yieldData.stakingYield * leverage).toFixed(2)}%</span>
-              </div>
-              <div className="flex justify-between text-[10px] font-mono">
-                <span style={{ color: 'var(--text-muted)' }}>Supply APY ({leverage.toFixed(1)}×)</span>
-                <span style={{ color: 'var(--accent-info)' }}>+{(yieldData.supplyAPY * leverage).toFixed(4)}%</span>
-              </div>
-              {leverage > 1 && (
-                <div className="flex justify-between text-[10px] font-mono">
-                  <span style={{ color: 'var(--text-muted)' }}>Borrow cost ({(leverage - 1).toFixed(1)}×)</span>
-                  <span style={{ color: 'var(--accent-secondary)' }}>-{yieldData.totalCosts.toFixed(4)}%</span>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Low HF warning */}
       {simulation && simulation.estimatedHealthFactor < 1.2 && simulation.estimatedHealthFactor > 0 && (
@@ -346,14 +366,42 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
           className="rounded-xl p-3 mb-4"
           style={{ background: 'rgba(255,51,102,0.07)', border: '1px solid rgba(255,51,102,0.2)' }}
         >
-          <p className="text-xs font-bold font-mono" style={{ color: 'var(--accent-secondary)' }}>
+          <p className="font-sans font-bold" style={{ color: 'var(--accent-secondary)', fontSize: 'var(--text-caption)' }}>
             {simulation.estimatedHealthFactor < 1.05 ? 'Extremely Low HF — High Liquidation Risk' : 'Low Health Factor — Be Careful'}
           </p>
-          <p className="text-[10px] font-mono mt-1" style={{ color: 'var(--text-secondary)' }}>
+          <p className="font-sans mt-1" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-micro)' }}>
             Health factor {simulation.estimatedHealthFactor.toFixed(3)} is near liquidation threshold (1.0)
           </p>
         </div>
       )}
+
+      {/* Transaction Stepper (during execution) */}
+      <AnimatePresence>
+        {executing && txStep && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-4 overflow-hidden"
+          >
+            <TransactionStepper
+              currentStep={txStep}
+              stepStatuses={(() => {
+                const steps: TxStep[] = ['approve', 'authorize', 'execute', 'confirm'];
+                const currentIdx = steps.indexOf(txStep);
+                const statuses: Record<TxStep, TxStepStatus> = {
+                  approve: 'pending', authorize: 'pending', execute: 'pending', confirm: 'pending',
+                };
+                for (let i = 0; i < steps.length; i++) {
+                  if (i < currentIdx) statuses[steps[i]] = 'completed';
+                  else if (i === currentIdx) statuses[steps[i]] = txStep === 'confirm' ? 'completed' : 'active';
+                }
+                return statuses;
+              })()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* CTA */}
       <button
@@ -368,7 +416,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
           : `Open ${leverage.toFixed(1)}× Position`}
       </button>
 
-      {/* TX status */}
+      {/* TX status (post-execution) */}
       <AnimatePresence>
         {txStatus && !executing && (
           <motion.div
@@ -381,11 +429,11 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
               border: `1px solid ${showError ? 'rgba(255,51,102,0.2)' : 'rgba(0,255,209,0.2)'}`,
             }}
           >
-            <p className="text-xs font-bold font-mono" style={{ color: showError ? 'var(--accent-secondary)' : 'var(--accent-primary)' }}>
-              {showError ? '' : ''}{txStatus}
+            <p className="font-sans font-bold" style={{ color: showError ? 'var(--accent-secondary)' : 'var(--accent-primary)', fontSize: 'var(--text-caption)' }}>
+              {txStatus}
             </p>
             {showError && (
-              <ul className="text-[10px] font-mono mt-2 text-(--text-muted) space-y-0.5 text-left list-disc list-inside">
+              <ul className="font-sans mt-2 space-y-0.5 text-left list-disc list-inside" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-micro)' }}>
                 <li>Ensure sufficient wstETH in wallet</li>
                 <li>Ensure sufficient ETH for gas</li>
                 <li>Check wallet for pending transactions</li>

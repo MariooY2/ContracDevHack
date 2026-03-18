@@ -1,4 +1,4 @@
-export const BASE_RPC_URL = process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://rpc.contract.dev/eb48f1e525119201aedb590f162be7bc';
+export const BASE_RPC_URL = process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org';
 
 export interface ReserveInfo {
   ltv: number;
@@ -7,6 +7,22 @@ export interface ReserveInfo {
   supplyAPY: number;
   borrowAPY: number;
   stakingYield: number;
+}
+
+// ── User position (multi-market) ─────────────────────────
+
+export interface UserPosition {
+  marketId: string;
+  pair: string;
+  collateralSymbol: string;
+  loanSymbol: string;
+  lltv: number;
+  supplyApy: number;
+  borrowApy: number;
+  collateral: bigint;
+  debt: bigint;
+  leverage: number;
+  healthFactor: number;
 }
 
 // ── Multi-chain types ──────────────────────────────────────

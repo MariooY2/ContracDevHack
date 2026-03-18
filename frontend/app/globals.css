@@ -13,6 +13,11 @@
   --bg-card-hover:  #0F1629;
   --bg-glass:       rgba(255, 255, 255, 0.02);
 
+  /* ── Semantic Surfaces (depth layering) ────────────────── */
+  --bg-surface-1:   #0B1022;
+  --bg-surface-2:   #0F1629;
+  --bg-surface-3:   #141C33;
+
   /* ── Borders ─────────────────────────────────────────────── */
   --border:         rgba(255, 255, 255, 0.06);
   --border-bright:  rgba(255, 255, 255, 0.12);
@@ -20,8 +25,8 @@
 
   /* ── Text ────────────────────────────────────────────────── */
   --text-primary:   #E8EDF5;
-  --text-secondary: #7D8FA3;
-  --text-muted:     #3D4D63;
+  --text-secondary: #94A3B8;
+  --text-muted:     #475569;
 
   /* ── Brand Accents ───────────────────────────────────────── */
   --accent-primary:   #00FFD1;
@@ -29,6 +34,29 @@
   --accent-info:      #00C2FF;
   --accent-warning:   #F59E0B;
   --accent-purple:    #A78BFA;
+
+  /* ── Semantic Colors ───────────────────────────────────── */
+  --color-success:    #10B981;
+  --color-danger:     #EF4444;
+
+  /* ── Typography Scale ──────────────────────────────────── */
+  --text-hero:    3.5rem;
+  --text-h1:      2rem;
+  --text-h2:      1.25rem;
+  --text-body:    0.875rem;
+  --text-caption: 0.75rem;
+  --text-micro:   0.625rem;
+
+  /* ── Spacing Scale (4px base) ──────────────────────────── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
 
   /* ── Gradients ───────────────────────────────────────────── */
   --grad-brand:      linear-gradient(135deg, #00FFD1 0%, #00C2FF 100%);
@@ -69,7 +97,7 @@ body {
   background-position: 0 0, 16px 16px;
 }
 
-/* ── Aurora background effect ───────────────────────────────── */
+/* ── Aurora background effect (single, subtle rotation) ─────── */
 .aurora-bg {
   position: fixed;
   inset: 0;
@@ -86,34 +114,16 @@ body {
   height: 200%;
   background:
     conic-gradient(
-      from 0deg at 30% 20%,
+      from 0deg at 40% 30%,
       transparent 0deg,
-      rgba(0,255,209,0.04) 60deg,
+      rgba(0,255,209,0.035) 60deg,
       transparent 120deg,
-      rgba(0,194,255,0.03) 180deg,
-      transparent 240deg,
-      rgba(167,139,250,0.025) 300deg,
+      rgba(0,194,255,0.025) 200deg,
+      transparent 270deg,
+      rgba(167,139,250,0.02) 330deg,
       transparent 360deg
     );
-  animation: aurora-rotate 30s linear infinite;
-}
-.aurora-bg::after {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background:
-    conic-gradient(
-      from 180deg at 70% 80%,
-      transparent 0deg,
-      rgba(0,194,255,0.03) 90deg,
-      transparent 180deg,
-      rgba(0,255,209,0.025) 270deg,
-      transparent 360deg
-    );
-  animation: aurora-rotate 40s linear infinite reverse;
+  animation: aurora-rotate 45s linear infinite;
 }
 
 @keyframes aurora-rotate {
@@ -121,44 +131,15 @@ body {
   100% { transform: rotate(360deg); }
 }
 
-/* ── Ambient orbs ───────────────────────────────────────────── */
-.ambient-orb-1 {
-  position: fixed; top: -200px; left: -200px;
-  width: 600px; height: 600px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(0,255,209,0.07) 0%, transparent 70%);
-  pointer-events: none;
-  animation: orb-drift-1 20s ease-in-out infinite;
-  filter: blur(40px);
-}
-.ambient-orb-2 {
-  position: fixed; bottom: -200px; right: -200px;
-  width: 700px; height: 700px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(0,194,255,0.05) 0%, transparent 70%);
-  pointer-events: none;
-  animation: orb-drift-2 25s ease-in-out infinite;
-  filter: blur(40px);
-}
+/* ── Ambient orb (single subtle purple ellipse) ────────────── */
 .ambient-orb-3 {
   position: fixed; top: 40%; left: 50%;
   transform: translate(-50%, -50%);
   width: 800px; height: 400px;
   border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(167,139,250,0.03) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(167,139,250,0.02) 0%, transparent 70%);
   pointer-events: none;
   filter: blur(60px);
-}
-
-@keyframes orb-drift-1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(60px, 40px) scale(1.05); }
-  66% { transform: translate(-30px, 60px) scale(0.98); }
-}
-@keyframes orb-drift-2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(-50px, -30px) scale(1.03); }
-  66% { transform: translate(40px, -50px) scale(0.97); }
 }
 
 /* ── Logo / Brand ───────────────────────────────────────────── */
@@ -921,25 +902,56 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
   user-select: none;
 }
 
+/* ════════════════════════════════════════════
+   VOLT WORDMARK — Electric Charge-In
+   ════════════════════════════════════════════ */
+
+@keyframes volt-flicker {
+  0%   { opacity: 0; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 0 transparent); }
+  10%  { opacity: 0.9; -webkit-text-fill-color: #00FFD1; filter: drop-shadow(0 0 20px rgba(0,255,209,0.8)); }
+  20%  { opacity: 0.1; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 0 transparent); }
+  35%  { opacity: 1; -webkit-text-fill-color: #00FFD1; filter: drop-shadow(0 0 30px rgba(0,255,209,0.9)); }
+  45%  { opacity: 0.05; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 0 transparent); }
+  60%  { opacity: 1; -webkit-text-fill-color: #00FFD1; filter: drop-shadow(0 0 20px rgba(0,255,209,0.6)); }
+  75%  { opacity: 1; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 12px rgba(0,255,209,0.3)); }
+  100% { opacity: 1; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 8px rgba(0,255,209,0.2)); }
+}
+
+@keyframes volt-glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(0,255,209,0.15)); }
+  50%      { filter: drop-shadow(0 0 16px rgba(0,255,209,0.3)); }
+}
+
+.volt-letter {
+  display: inline-block;
+  font-family: var(--font-display), var(--font-geist-mono), monospace;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  background: linear-gradient(90deg, #00FFD1 0%, #00C2FF 40%, #A78BFA 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  opacity: 0;
+}
+
+.volt-underline {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #00FFD1, #00C2FF, #A78BFA, transparent);
+  transform-origin: left;
+  border-radius: 1px;
+  box-shadow: 0 0 12px rgba(0,255,209,0.3), 0 0 24px rgba(0,255,209,0.1);
+}
+
 /* ── Mobile performance: simplify heavy animations ─────── */
 @media (max-width: 768px) {
-  .aurora-bg::before,
-  .aurora-bg::after {
+  .aurora-bg::before {
     animation-duration: 60s;
   }
-  .ambient-orb-1,
-  .ambient-orb-2 {
-    display: none;
-  }
   .ambient-orb-3 {
-    opacity: 0.5;
+    opacity: 0.3;
   }
-  .hero-scanlines {
-    display: none;
-  }
-  .hero-grid {
-    display: none;
-  }
+  .hero-scanlines { display: none; }
+  .hero-grid { display: none; }
   .hero-ring { display: none; }
   .hero-blob { filter: blur(60px); opacity: 0.5; }
   .hero-dot-matrix { display: none; }
@@ -947,24 +959,21 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
 
 @media (prefers-reduced-motion: reduce) {
   .aurora-bg::before,
-  .aurora-bg::after,
-  .ambient-orb-1,
-  .ambient-orb-2,
   .gradient-text-animated,
   .badge-glow-pulse,
   .flash-node,
   .hero-ring,
   .hero-blob,
-  .hero-dot-matrix {
+  .hero-dot-matrix,
+  .volt-letter {
     animation: none !important;
   }
+  .volt-letter { opacity: 1; }
+  .volt-underline { transform: scaleX(1); }
 }
 
 /* ── GPU hints ────────────────────────────────────────── */
 .aurora-bg::before,
-.aurora-bg::after,
-.ambient-orb-1,
-.ambient-orb-2,
 .ambient-orb-3 {
   will-change: transform;
 }

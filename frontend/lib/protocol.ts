@@ -1,9 +1,9 @@
 // Morpho Blue on Base — single supported protocol
 export const MORPHO_CONFIG = {
   name: 'Morpho Blue',
-  chainId: 18133,
+  chainId: 8453,
   chainName: 'Base',
-  helperAddress: '0x888D8Eb72c4526427723c0142b29085a02ef4e45',
+  helperAddress: '0x0000000000000000000000000000000000000000', // Deploy MorphoLeverageHelper and set address here
   theme: {
     primary: '#00D395',
     primaryHover: '#00C085',

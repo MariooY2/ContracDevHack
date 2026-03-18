@@ -3,15 +3,34 @@ import { NextResponse } from 'next/server';
 const MORPHO_API_URL = 'https://blue-api.morpho.org/graphql';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// Known LST collateral symbols on Base (ETH-correlated)
+// Known LST collateral symbols across chains
 const LST_SYMBOLS = new Set([
+  // ETH LSTs (all chains)
   'wstETH', 'weETH', 'cbETH', 'rETH', 'wrsETH',
   'yoETH', 'wsuperOETHb', 'bsdETH', 'ezETH', 'mETH',
   'pufETH', 'osETH', 'swETH', 'ETHx', 'sfrxETH',
+  // Polygon-specific
+  'stMATIC', 'MaticX',
 ]);
 
-// WETH address on Base
-const WETH_BASE = '0x4200000000000000000000000000000000000006';
+// WETH addresses per chain
+const WETH_ADDRESSES = [
+  '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // Ethereum
+  '0x4200000000000000000000000000000000000006', // Base
+  '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', // Arbitrum
+  '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619', // Polygon
+];
+
+// All supported chain IDs
+const CHAIN_IDS = [1, 8453, 42161, 137];
+
+// Map chain ID → slug
+const CHAIN_ID_TO_SLUG: Record<number, string> = {
+  1: 'ethereum',
+  8453: 'base',
+  42161: 'arbitrum',
+  137: 'polygon',
+};
 
 interface CachedResult {
   markets: MorphoMarket[];
@@ -34,19 +53,22 @@ export interface MorphoMarket {
   supplyAssetsUsd: number | null;
   oracleAddress: string | null;
   oracleType: string | null;
+  chainId: number;
+  chainSlug: string;
 }
 
 let cachedData: CachedResult | null = null;
 
 const QUERY = `
-  query BaseWethMarkets($weth: [String!]!) {
+  query MultiChainWethMarkets($weth: [String!]!, $chainIds: [Int!]!) {
     markets(
-      where: { chainId_in: [8453], loanAssetAddress_in: $weth }
-      first: 50
+      where: { chainId_in: $chainIds, loanAssetAddress_in: $weth }
+      first: 200
     ) {
       items {
         uniqueKey
         lltv
+        morphoBlue { chain { id network } }
         collateralAsset { symbol address decimals }
         loanAsset { symbol address }
         state {
@@ -65,6 +87,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const forceRefresh = searchParams.get('refresh') === '1';
     const singleId = searchParams.get('id');
+    const chainFilter = searchParams.get('chain'); // optional: 'ethereum', 'base', 'arbitrum', 'polygon'
 
     // If requesting a single market and we have cache, return from cache
     if (singleId && cachedData) {
@@ -77,13 +100,17 @@ export async function GET(request: Request) {
     }
 
     if (!forceRefresh && cachedData && Date.now() - cachedData.ts < CACHE_TTL) {
+      const filtered = chainFilter
+        ? cachedData.markets.filter(m => m.chainSlug === chainFilter)
+        : cachedData.markets;
+
       if (singleId) {
-        const market = cachedData.markets.find(m => m.uniqueKey === singleId);
+        const market = filtered.find(m => m.uniqueKey === singleId);
         return NextResponse.json({ market: market || null }, {
           headers: { 'Cache-Control': 'public, max-age=60' },
         });
       }
-      return NextResponse.json({ markets: cachedData.markets }, {
+      return NextResponse.json({ markets: filtered }, {
         headers: { 'Cache-Control': 'public, max-age=60' },
       });
     }
@@ -91,7 +118,10 @@ export async function GET(request: Request) {
     const res = await fetch(MORPHO_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: QUERY, variables: { weth: [WETH_BASE] } }),
+      body: JSON.stringify({
+        query: QUERY,
+        variables: { weth: WETH_ADDRESSES, chainIds: CHAIN_IDS },
+      }),
     });
 
     if (!res.ok) throw new Error(`Morpho API ${res.status}`);
@@ -127,6 +157,8 @@ export async function GET(request: Request) {
         supplyAssetsUsd: m.state.supplyAssetsUsd,
         oracleAddress: m.oracleAddress || null,
         oracleType: m.oracleInfo?.type || null,
+        chainId: m.morphoBlue?.chain?.id || 0,
+        chainSlug: CHAIN_ID_TO_SLUG[m.morphoBlue?.chain?.id] || 'unknown',
       }))
       .sort((a: MorphoMarket, b: MorphoMarket) => {
         // Sort by TVL descending
@@ -139,14 +171,18 @@ export async function GET(request: Request) {
 
     cachedData = { markets, ts: Date.now() };
 
+    const filtered = chainFilter
+      ? markets.filter(m => m.chainSlug === chainFilter)
+      : markets;
+
     if (singleId) {
-      const market = markets.find(m => m.uniqueKey === singleId);
+      const market = filtered.find(m => m.uniqueKey === singleId);
       return NextResponse.json({ market: market || null }, {
         headers: { 'Cache-Control': 'public, max-age=60' },
       });
     }
 
-    return NextResponse.json({ markets }, {
+    return NextResponse.json({ markets: filtered }, {
       headers: { 'Cache-Control': 'public, max-age=60' },
     });
   } catch (err) {

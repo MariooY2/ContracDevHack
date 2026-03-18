@@ -4,15 +4,17 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { formatEther } from 'viem';
 import { useLeverageContract } from './useLeverageContract';
 import { useAppStore } from '@/store/useAppStore';
+import { MORPHO_MARKET_ID } from '@/lib/leverageContract';
 
 /**
  * Full dashboard data hook — fetches market data + user position + unwind state.
- * Used on the market detail page (/markets/[marketId]).
+ * Accepts an optional marketId to read position for any market (defaults to MORPHO_MARKET_ID).
  */
-export function useDashboardData() {
+export function useDashboardData(marketId?: string) {
   const {
     isConnected,
     getUserPosition,
+    readPositionForMarket,
     getReserveInfo,
     getExchangeRate,
     getWstethBalance,
@@ -47,32 +49,55 @@ export function useDashboardData() {
   const [unwindTxStatus, setUnwindTxStatus] = useState('');
   const [unwindIsError, setUnwindIsError] = useState(false);
 
-  const fnRef = useRef({ getReserveInfo, getExchangeRate, getUserPosition, getWstethBalance });
+  // Determine which market to read position for
+  const targetMarketId = marketId || MORPHO_MARKET_ID;
+  const isDefaultMarket = targetMarketId === MORPHO_MARKET_ID;
+
+  const fnRef = useRef({ getReserveInfo, getExchangeRate, getUserPosition, getWstethBalance, readPositionForMarket });
   const connectedRef = useRef(isConnected);
+  const marketIdRef = useRef(targetMarketId);
   useEffect(() => {
-    fnRef.current = { getReserveInfo, getExchangeRate, getUserPosition, getWstethBalance };
-  }, [getReserveInfo, getExchangeRate, getUserPosition, getWstethBalance]);
+    fnRef.current = { getReserveInfo, getExchangeRate, getUserPosition, getWstethBalance, readPositionForMarket };
+  }, [getReserveInfo, getExchangeRate, getUserPosition, getWstethBalance, readPositionForMarket]);
   useEffect(() => { connectedRef.current = isConnected; }, [isConnected]);
+  useEffect(() => { marketIdRef.current = targetMarketId; }, [targetMarketId]);
 
   const refreshData = useCallback(async (showLoading = false) => {
     if (showLoading) startRefresh(connectedRef.current);
     try {
       const fns = fnRef.current;
-      const [reserve, rate] = await Promise.all([fns.getReserveInfo(), fns.getExchangeRate()]);
+      const currentMarketId = marketIdRef.current;
+      const isDefault = currentMarketId === MORPHO_MARKET_ID;
+
+      // Market data: use on-chain reserve info for default market, exchange rate always
+      const [reserve, rate] = await Promise.all([
+        isDefault ? fns.getReserveInfo() : null,
+        fns.getExchangeRate(),
+      ]);
       setMarketData({ reserveInfo: reserve ?? null, exchangeRate: rate });
 
       if (connectedRef.current) {
-        const [position, wBal] = await Promise.all([fns.getUserPosition(), fns.getWstethBalance()]);
-        if (position) {
-          setPositionData({
-            collateralBalance: position.totalCollateralBase,
-            debtBalance: position.totalDebtBase,
-            healthFactor: position.healthFactor,
-            walletBalance: wBal,
-          });
-        } else {
-          setPositionData({ collateralBalance: 0n, debtBalance: 0n, healthFactor: 0, walletBalance: wBal });
-        }
+        // Position: use parameterized reader for any market
+        const [posData, wBal] = await Promise.all([
+          fns.readPositionForMarket(currentMarketId),
+          fns.getWstethBalance(),
+        ]);
+
+        const collateral = posData.collateral;
+        const debt = posData.debt;
+        // Health factor: for LST/ETH pairs, rate >= 1.0; use rate for default, 1.0 for others (conservative)
+        const effectiveRate = isDefault ? rate : 1.0;
+        const lltv = 0.945; // default LLTV for LST/ETH markets
+        const hf = debt > 0n
+          ? (Number(formatEther(collateral)) * effectiveRate * lltv) / Number(formatEther(debt))
+          : 999;
+
+        setPositionData({
+          collateralBalance: collateral,
+          debtBalance: debt,
+          healthFactor: hf,
+          walletBalance: wBal,
+        });
       } else {
         clearPositionData();
       }
@@ -101,14 +126,14 @@ export function useDashboardData() {
     setUnwindExecuting(false);
   }, [executeDeleverage, refreshData]);
 
-  // Initial + interval refresh
+  // Initial + interval refresh — re-run when marketId changes
   useEffect(() => {
     let cancelled = false;
     const run = async (showLoading: boolean) => { if (!cancelled) await refreshData(showLoading); };
     run(true);
     const interval = setInterval(() => run(false), 15000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [refreshData]);
+  }, [refreshData, targetMarketId]);
 
   // Refresh on wallet connection change
   useEffect(() => { refreshData(true); }, [isConnected, refreshData]);

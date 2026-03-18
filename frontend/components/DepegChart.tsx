@@ -29,13 +29,68 @@ function maxLeverageFromDepeg(maxDepegPct: number, safetyBuffer: number, lltv: n
   return 1 / denom;
 }
 
+/** LTTB (Largest Triangle Three Buckets) downsampling */
+function lttbDownsample(data: OracleDataPoint[], threshold: number): OracleDataPoint[] {
+  const len = data.length;
+  if (threshold >= len || threshold <= 2) return data;
+
+  const sampled: OracleDataPoint[] = [data[0]];
+  const bucketSize = (len - 2) / (threshold - 2);
+  let prevIdx = 0;
+
+  for (let i = 0; i < threshold - 2; i++) {
+    const currStart = Math.floor(i * bucketSize) + 1;
+    const currEnd = Math.min(Math.floor((i + 1) * bucketSize) + 1, len - 1);
+    const nextStart = Math.floor((i + 1) * bucketSize) + 1;
+    const nextEnd = Math.min(Math.floor((i + 2) * bucketSize) + 1, len - 1);
+
+    let avgT = 0, avgR = 0;
+    const nextLen = nextEnd - nextStart || 1;
+    for (let j = nextStart; j < nextEnd; j++) { avgT += data[j].timestamp; avgR += data[j].rate; }
+    avgT /= nextLen;
+    avgR /= nextLen;
+
+    const pT = data[prevIdx].timestamp;
+    const pR = data[prevIdx].rate;
+    let maxArea = -1, bestIdx = currStart;
+    for (let j = currStart; j < currEnd; j++) {
+      const area = Math.abs((pT - avgT) * (data[j].rate - pR) - (pT - data[j].timestamp) * (avgR - pR));
+      if (area > maxArea) { maxArea = area; bestIdx = j; }
+    }
+    sampled.push(data[bestIdx]);
+    prevIdx = bestIdx;
+  }
+
+  sampled.push(data[len - 1]);
+  return sampled;
+}
+
+// Target points per time range — shorter ranges need fewer points
+const LTTB_TARGETS: Record<string, number> = {
+  '1M': 200,
+  '3M': 400,
+  '6M': 600,
+  '1Y': 800,
+  'All': 1000,
+};
+
 interface DepegChartProps {
   reserveInfo: { liquidationThreshold: number; maxLeverage: number } | null;
   collateralSymbol?: string;
+  chainSlug?: string;
+  oracleAddress?: string | null;
 }
 
-export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH' }: DepegChartProps) {
-  const oracle = getOracleForCollateral(collateralSymbol);
+export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', chainSlug, oracleAddress }: DepegChartProps) {
+  // Try mapped oracle first, fall back to Morpho's oracleAddress as chainlink on this chain
+  const mappedOracle = getOracleForCollateral(collateralSymbol, chainSlug);
+  const oracle = mappedOracle || (oracleAddress ? {
+    address: oracleAddress,
+    pair: `${collateralSymbol}/ETH`,
+    type: 'chainlink' as const,
+    chainSlug: chainSlug || 'base',
+    chainId: chainSlug === 'ethereum' ? 1 : chainSlug === 'arbitrum' ? 42161 : chainSlug === 'polygon' ? 137 : 8453,
+  } : null);
   const [allPoints, setAllPoints] = useState<OracleDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -46,11 +101,15 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH' }:
   const svgRef = useRef<SVGSVGElement>(null);
 
   const oraclePoints = useMemo(() => {
+    let pts = allPoints;
     const range = TIME_RANGES.find(r => r.label === timeRange);
-    if (!range || range.days === 0 || allPoints.length === 0) return allPoints;
-    const cutoff = Math.floor(Date.now() / 1000) - range.days * 86400;
-    const filtered = allPoints.filter(p => p.timestamp >= cutoff);
-    return filtered.length >= 2 ? filtered : allPoints;
+    if (range && range.days > 0 && pts.length > 0) {
+      const cutoff = Math.floor(Date.now() / 1000) - range.days * 86400;
+      const filtered = pts.filter(p => p.timestamp >= cutoff);
+      if (filtered.length >= 2) pts = filtered;
+    }
+    const target = LTTB_TARGETS[timeRange] || 1000;
+    return pts.length > target ? lttbDownsample(pts, target) : pts;
   }, [allPoints, timeRange]);
 
   const lltv = reserveInfo?.liquidationThreshold
@@ -64,14 +123,14 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH' }:
 
   const fetchData = useCallback(async () => {
     if (!oracle) {
-      setError(`No oracle available for ${collateralSymbol}`);
+      setError('no-oracle');
       setLoading(false);
       return;
     }
     setLoading(true);
     setError('');
     try {
-      const oracleData = await getOracleDataByAddress(oracle.address);
+      const oracleData = await getOracleDataByAddress(oracle.address, false, oracle.chainSlug);
       setFromCache(oracleData.fromCache);
       setCacheAgeMin(Math.round(oracleData.cacheAgeMs / 60000));
       if (oracleData.points.length < 2) {
@@ -91,10 +150,10 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH' }:
 
   const handleForceRefresh = async () => {
     if (!oracle) return;
-    clearOracleCacheForAddress(oracle.address);
+    clearOracleCacheForAddress(oracle.address, oracle.chainSlug);
     setLoading(true);
     try {
-      const oracleData = await getOracleDataByAddress(oracle.address, true);
+      const oracleData = await getOracleDataByAddress(oracle.address, true, oracle.chainSlug);
       setFromCache(oracleData.fromCache);
       setCacheAgeMin(Math.round(oracleData.cacheAgeMs / 60000));
       if (oracleData.points.length >= 2) {
@@ -342,9 +401,20 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH' }:
 
       {loading ? (
         <CardLoader label="Fetching oracle data" />
+      ) : error === 'no-oracle' ? (
+        <div className="glass-inner p-8 text-center space-y-2">
+          <p className="text-sm font-sans" style={{ color: 'var(--text-muted)' }}>
+            Oracle rate chart not available for {collateralSymbol} on this chain.
+          </p>
+          <p className="text-xs font-sans" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>
+            Switch to the Yield Curve tab above to see leverage analytics.
+          </p>
+        </div>
       ) : error ? (
         <div className="glass-inner p-8 text-center space-y-3">
-          <p className="text-sm font-mono" style={{ color: 'var(--accent-secondary)' }}>{error}</p>
+          <p className="text-sm font-sans" style={{ color: 'var(--text-muted)' }}>
+            Could not load oracle data for {collateralSymbol}.
+          </p>
           <button
             onClick={handleForceRefresh}
             className="text-xs font-mono underline transition-opacity hover:opacity-70"
@@ -403,8 +473,8 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH' }:
               ))}
 
               {/* X-axis date labels */}
-              {xLabels.map(({ idx, label }) => (
-                <text key={idx} x={toX(idx)} y={H - 5} textAnchor="middle" fill="#64748b" fontSize="8">
+              {xLabels.map(({ idx, label }, i) => (
+                <text key={i} x={toX(idx)} y={H - 5} textAnchor="middle" fill="#64748b" fontSize="8">
                   {label}
                 </text>
               ))}

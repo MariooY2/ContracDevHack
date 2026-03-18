@@ -24,39 +24,53 @@ export default function MarketsPage() {
           className="relative z-10 text-center pt-8 pb-6"
         >
           <p className="text-[10px] font-mono tracking-[0.25em] uppercase mb-3" style={{ color: 'var(--text-muted)' }}>
-            {'// MORPHO BLUE · BASE L2'}
+{'MORPHO BLUE · MULTI-CHAIN'}
           </p>
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight mb-3" style={{ color: 'var(--text-primary)' }}>
             <span className="gradient-text-animated">Live Markets</span>
           </h1>
-          <p className="text-sm font-mono max-w-lg mx-auto" style={{ color: 'var(--text-secondary)' }}>
+          <p className="font-sans max-w-lg mx-auto" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-body)' }}>
             Explore LST/ETH leverage markets. Click any market to view analytics and open positions.
           </p>
 
-          {/* Aggregate stats bar */}
+          {/* Aggregate stats */}
           {stats && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="flex justify-center items-center gap-3 sm:gap-5 mt-5 flex-wrap"
+              className="grid grid-cols-3 gap-3 sm:gap-4 max-w-md mx-auto mt-6"
             >
-              <div className="stat-chip stat-chip-live">
-                <span className="stat-label">Markets</span>
-                <span className="stat-value" style={{ color: 'var(--accent-primary)' }}>{stats.marketCount}</span>
-              </div>
-              <div className="stat-chip">
-                <span className="stat-label">Total TVL</span>
-                <span className="stat-value">
-                  {stats.totalTvl >= 1000 ? `${(stats.totalTvl / 1000).toFixed(1)}K` : stats.totalTvl.toFixed(0)} ETH
-                </span>
-              </div>
-              {stats.topMarket && (
-                <div className="stat-chip">
-                  <span className="stat-label">Top APY</span>
-                  <span className="stat-value" style={{ color: 'var(--accent-primary)' }}>{stats.topNetApy.toFixed(1)}%</span>
+              {[
+                { label: 'Markets', value: String(stats.marketCount), accent: true, live: true },
+                { label: 'Total TVL', value: `${stats.totalTvl >= 1000 ? `${(stats.totalTvl / 1000).toFixed(1)}K` : stats.totalTvl.toFixed(0)} ETH`, accent: false },
+                ...(stats.topMarket ? [{ label: 'Top APY', value: `${stats.topNetApy.toFixed(1)}%`, accent: true }] : []),
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className="text-center py-3 px-2 rounded-xl"
+                  style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                  }}
+                >
+                  <div className="flex items-center justify-center gap-1.5 mb-1.5">
+                    {stat.live && <div className="live-dot" style={{ width: 5, height: 5 }} />}
+                    <span className="font-sans uppercase tracking-[0.15em] font-semibold" style={{ color: 'var(--text-muted)', fontSize: '9px' }}>
+                      {stat.label}
+                    </span>
+                  </div>
+                  <span
+                    className="font-mono font-bold"
+                    style={{
+                      fontSize: 'clamp(1rem, 3vw, 1.25rem)',
+                      color: stat.accent ? 'var(--accent-primary)' : 'var(--text-primary)',
+                    }}
+                  >
+                    {stat.value}
+                  </span>
                 </div>
-              )}
+              ))}
             </motion.div>
           )}
         </motion.div>
