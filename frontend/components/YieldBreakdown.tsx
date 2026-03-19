@@ -84,23 +84,24 @@ export default function YieldBreakdown({ reserveInfo, leverage, exchangeRate, is
 
   return (
     <div className="card-glow p-6">
-      <h2 className="text-base font-black gradient-text tracking-tight mb-5">Yield Breakdown</h2>
+      <h2 className="text-base font-black tracking-tight mb-5" style={{ color: 'var(--text-primary)' }}>Yield Breakdown</h2>
 
       {/* Net APY hero */}
       <div
         className="glass-inner p-5 mb-5 text-center relative overflow-hidden"
-        style={{ background: 'rgba(0,255,209,0.04)', border: '1px solid rgba(0,255,209,0.1)' }}
+        style={{ background: 'rgba(41,115,255,0.04)', border: '1px solid rgba(41,115,255,0.1)' }}
       >
         {/* Subtle glow behind number */}
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse at center, rgba(0,255,209,0.08) 0%, transparent 70%)' }}
+          style={{ background: 'radial-gradient(ellipse at center, rgba(41,115,255,0.08) 0%, transparent 70%)' }}
         />
         <p className="text-[10px] text-(--text-muted) uppercase tracking-[0.2em] font-mono mb-2">
           Net APY at {leverage.toFixed(1)}x Leverage
         </p>
         <motion.p
-          className="text-5xl font-black gradient-text font-mono leading-none"
+          className="text-5xl font-black font-mono leading-none"
+          style={{ color: 'var(--accent-primary)' }}
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4, type: 'spring', stiffness: 200 }}
@@ -164,7 +165,7 @@ export default function YieldBreakdown({ reserveInfo, leverage, exchangeRate, is
         <span className="text-xs font-bold text-(--text-secondary) font-mono uppercase tracking-wider">
           Net Annual Yield
         </span>
-        <span className="text-lg font-black gradient-text font-mono">
+        <span className="text-lg font-black font-mono" style={{ color: 'var(--accent-primary)' }}>
           +{netAPY.toFixed(2)}%
         </span>
       </div>

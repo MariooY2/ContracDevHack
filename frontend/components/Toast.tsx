@@ -24,9 +24,9 @@ export function useToast() {
 let nextId = 0;
 
 const VARIANT_STYLES: Record<ToastVariant, { border: string; icon: string; bg: string }> = {
-  success: { border: 'rgba(0,255,209,0.3)', icon: '#00FFD1', bg: 'rgba(0,255,209,0.06)' },
-  error: { border: 'rgba(255,51,102,0.3)', icon: '#FF3366', bg: 'rgba(255,51,102,0.06)' },
-  info: { border: 'rgba(0,194,255,0.3)', icon: '#00C2FF', bg: 'rgba(0,194,255,0.06)' },
+  success: { border: 'rgba(41,115,255,0.3)', icon: '#2973ff', bg: 'rgba(41,115,255,0.06)' },
+  error: { border: 'rgba(239,68,68,0.3)', icon: '#ef4444', bg: 'rgba(239,68,68,0.06)' },
+  info: { border: 'rgba(41,115,255,0.3)', icon: '#2973ff', bg: 'rgba(41,115,255,0.06)' },
 };
 
 const ICONS: Record<ToastVariant, ReactNode> = {
@@ -81,7 +81,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 transition={{ duration: 0.25, ease: 'easeOut' }}
                 className="pointer-events-auto flex items-start gap-2.5 px-4 py-3 rounded-xl backdrop-blur-lg"
                 style={{
-                  background: `linear-gradient(135deg, ${style.bg}, rgba(10,15,31,0.95))`,
+                  background: `linear-gradient(135deg, ${style.bg}, rgba(9,9,9,0.95))`,
                   border: `1px solid ${style.border}`,
                   boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 20px ${style.bg}`,
                 }}

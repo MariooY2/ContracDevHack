@@ -37,6 +37,12 @@ interface CachedResult {
   ts: number;
 }
 
+export interface SupplyingVault {
+  address: string;
+  symbol: string;
+  name: string;
+}
+
 export interface MorphoMarket {
   uniqueKey: string;
   pair: string;
@@ -53,8 +59,10 @@ export interface MorphoMarket {
   supplyAssetsUsd: number | null;
   oracleAddress: string | null;
   oracleType: string | null;
+  oraclePrice: number | null;
   chainId: number;
   chainSlug: string;
+  supplyingVaults: SupplyingVault[];
 }
 
 let cachedData: CachedResult | null = null;
@@ -72,11 +80,17 @@ const QUERY = `
         collateralAsset { symbol address decimals }
         loanAsset { symbol address }
         state {
-          borrowApy supplyApy utilization
+          borrowApy supplyApy utilization price
           supplyAssets borrowAssets supplyAssetsUsd
         }
         oracleAddress
         oracleInfo { type }
+        supplyingVaults {
+          address
+          symbol
+          name
+          metadata { image }
+        }
       }
     }
   }
@@ -157,8 +171,14 @@ export async function GET(request: Request) {
         supplyAssetsUsd: m.state.supplyAssetsUsd,
         oracleAddress: m.oracleAddress || null,
         oracleType: m.oracleInfo?.type || null,
+        oraclePrice: m.state.price ? Number(BigInt(m.state.price)) / 1e36 : null,
         chainId: m.morphoBlue?.chain?.id || 0,
         chainSlug: CHAIN_ID_TO_SLUG[m.morphoBlue?.chain?.id] || 'unknown',
+        supplyingVaults: (m.supplyingVaults || []).map((v: any) => ({
+          address: v.address,
+          symbol: v.symbol || '',
+          name: v.name || '',
+        })),
       }))
       .sort((a: MorphoMarket, b: MorphoMarket) => {
         // Sort by TVL descending

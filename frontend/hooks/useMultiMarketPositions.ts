@@ -18,6 +18,7 @@ interface MarketInput {
   lltv: number;
   supplyApy: number;
   borrowApy: number;
+  chainSlug?: string;
 }
 
 /**
@@ -110,6 +111,7 @@ export function useMultiMarketPositions(markets: MarketInput[]) {
           debt,
           leverage,
           healthFactor,
+          chainSlug: market.chainSlug,
         });
       }
 

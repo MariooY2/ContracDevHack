@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import MarketsTable from '@/components/MarketsTable';
 import type { AggStats } from '@/components/MarketsTable';
@@ -13,21 +13,17 @@ export default function MarketsPage() {
       {/* ── Markets Hero Header ── */}
       <div className="w-full relative mb-8">
         {/* Subtle background effects */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-          <div className="markets-hero-glow" />
-        </div>
-
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="relative z-10 text-center pt-8 pb-6"
         >
-          <p className="text-[10px] font-mono tracking-[0.25em] uppercase mb-3" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-[10px] tracking-[0.25em] uppercase mb-3" style={{ color: 'var(--text-muted)' }}>
 {'MORPHO BLUE · MULTI-CHAIN'}
           </p>
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight mb-3" style={{ color: 'var(--text-primary)' }}>
-            <span className="gradient-text-animated">Live Markets</span>
+            Live Markets
           </h1>
           <p className="font-sans max-w-lg mx-auto" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-body)' }}>
             Explore LST/ETH leverage markets. Click any market to view analytics and open positions.
@@ -86,7 +82,9 @@ export default function MarketsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
         >
-          <MarketsTable onStatsReady={setStats} />
+          <Suspense fallback={null}>
+            <MarketsTable onStatsReady={setStats} />
+          </Suspense>
         </motion.div>
       </div>
     </div>

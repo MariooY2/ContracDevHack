@@ -122,12 +122,12 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
 
   return (
     <div className="card-glow p-6">
-      <h2 className="font-black gradient-text tracking-tight mb-4" style={{ fontSize: 'var(--text-h2)' }}>Open Position</h2>
+      <h2 className="font-black tracking-tight mb-4" style={{ fontSize: 'var(--text-h2)', color: 'var(--text-primary)' }}>Open Position</h2>
 
       {/* Info banner */}
       <div
         className="rounded-xl p-3 mb-5 flex items-start gap-2.5"
-        style={{ background: 'rgba(0,194,255,0.05)', border: '1px solid rgba(0,194,255,0.15)' }}
+        style={{ background: 'rgba(41,115,255,0.05)', border: '1px solid rgba(41,115,255,0.15)' }}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0 mt-0.5" style={{ color: 'var(--accent-info)' }}>
           <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
@@ -159,7 +159,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
           value={deposit}
           onChange={(e) => setDeposit(e.target.value)}
           placeholder="0.0"
-          style={{ borderColor: isOverBalance ? 'rgba(255,51,102,0.5)' : undefined }}
+          style={{ borderColor: isOverBalance ? 'rgba(239,68,68,0.5)' : undefined }}
         />
         {isOverBalance && (
           <p className="font-sans mt-1.5" style={{ color: 'var(--accent-secondary)', fontSize: 'var(--text-micro)' }}>
@@ -197,8 +197,8 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
               className="flex-1 py-1.5 rounded-lg font-mono font-bold transition-all"
               style={{
                 fontSize: 'var(--text-caption)',
-                background: Math.abs(leverage - preset) < 0.1 ? 'rgba(0,255,209,0.12)' : 'rgba(255,255,255,0.03)',
-                border: `1px solid ${Math.abs(leverage - preset) < 0.1 ? 'rgba(0,255,209,0.25)' : 'var(--border)'}`,
+                background: Math.abs(leverage - preset) < 0.1 ? 'rgba(41,115,255,0.12)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${Math.abs(leverage - preset) < 0.1 ? 'rgba(41,115,255,0.25)' : 'var(--border)'}`,
                 color: Math.abs(leverage - preset) < 0.1 ? 'var(--accent-primary)' : 'var(--text-muted)',
                 opacity: preset > maxLeverage ? 0.3 : 1,
               }}
@@ -212,8 +212,8 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
             className="flex-1 py-1.5 rounded-lg font-mono font-bold transition-all"
             style={{
               fontSize: 'var(--text-caption)',
-              background: Math.abs(leverage - maxLeverage) < 0.1 ? 'rgba(0,255,209,0.12)' : 'rgba(255,255,255,0.03)',
-              border: `1px solid ${Math.abs(leverage - maxLeverage) < 0.1 ? 'rgba(0,255,209,0.25)' : 'var(--border)'}`,
+              background: Math.abs(leverage - maxLeverage) < 0.1 ? 'rgba(41,115,255,0.12)' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${Math.abs(leverage - maxLeverage) < 0.1 ? 'rgba(41,115,255,0.25)' : 'var(--border)'}`,
               color: Math.abs(leverage - maxLeverage) < 0.1 ? 'var(--accent-primary)' : 'var(--text-muted)',
             }}
           >
@@ -268,7 +268,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
           {simulation && (
             <div className="flex flex-col items-center">
               <div
-                className={`w-3 h-3 rounded-full mb-1 ${simulation.estimatedHealthFactor > 1.5 ? 'pulse-safe' : 'pulse-danger'}`}
+                className={`w-3 h-3 rounded-full mb-1 `}
                 style={{ background: healthColor }}
               />
               <span className="font-mono font-bold" style={{ color: healthColor, fontSize: 'var(--text-caption)' }}>
@@ -340,7 +340,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
               <Tooltip label="Health Factor" tip="Below 1.0 triggers liquidation. Keep above 1.5 for safety." className="font-sans" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }} />
               <div className="flex items-center gap-2">
                 <div
-                  className={`w-2 h-2 rounded-full ${simulation.estimatedHealthFactor > 1.5 ? 'pulse-safe' : 'pulse-danger'}`}
+                  className={`w-2 h-2 rounded-full `}
                   style={{ background: healthColor }}
                 />
                 <span className="font-black font-mono" style={{ color: healthColor, fontSize: 'var(--text-h2)' }}>
@@ -355,7 +355,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
       {/* Loading sim */}
       {loading && !simulation && (
         <div className="glass-inner p-5 mb-4 flex items-center justify-center gap-3">
-          <div className="loader-bars"><span/><span/><span/><span/></div>
+          <div className="loader-ring" style={{ width: 20, height: 20 }} />
           <span className="font-sans" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-caption)' }}>Simulating...</span>
         </div>
       )}
@@ -364,7 +364,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
       {simulation && simulation.estimatedHealthFactor < 1.2 && simulation.estimatedHealthFactor > 0 && (
         <div
           className="rounded-xl p-3 mb-4"
-          style={{ background: 'rgba(255,51,102,0.07)', border: '1px solid rgba(255,51,102,0.2)' }}
+          style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)' }}
         >
           <p className="font-sans font-bold" style={{ color: 'var(--accent-secondary)', fontSize: 'var(--text-caption)' }}>
             {simulation.estimatedHealthFactor < 1.05 ? 'Extremely Low HF — High Liquidation Risk' : 'Low Health Factor — Be Careful'}
@@ -425,8 +425,8 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
             exit={{ opacity: 0, y: 8 }}
             className="mt-3 p-3 rounded-xl text-center"
             style={{
-              background: showError ? 'rgba(255,51,102,0.07)' : 'rgba(0,255,209,0.07)',
-              border: `1px solid ${showError ? 'rgba(255,51,102,0.2)' : 'rgba(0,255,209,0.2)'}`,
+              background: showError ? 'rgba(239,68,68,0.07)' : 'rgba(57,166,153,0.07)',
+              border: `1px solid ${showError ? 'rgba(239,68,68,0.2)' : 'rgba(57,166,153,0.2)'}`,
             }}
           >
             <p className="font-sans font-bold" style={{ color: showError ? 'var(--accent-secondary)' : 'var(--accent-primary)', fontSize: 'var(--text-caption)' }}>

@@ -25,9 +25,9 @@ function HealthArc({ healthFactor, color }: { healthFactor: number; color: strin
       <svg width="120" height="70" viewBox="0 0 120 70" overflow="visible">
         <defs>
           <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#FF3366" />
+            <stop offset="0%" stopColor="#ef4444" />
             <stop offset="45%" stopColor="#F59E0B" />
-            <stop offset="100%" stopColor="#00FFD1" />
+            <stop offset="100%" stopColor="#2973ff" />
           </linearGradient>
         </defs>
         <path
@@ -95,7 +95,7 @@ export default function PositionDashboard({
   const equity = collateralInEth - debt;
   const currentLeverage = equity > 0 ? collateralInEth / equity : 0;
 
-  const hfColor = healthFactor > 1.5 ? '#00FFD1' : healthFactor > 1.1 ? '#F59E0B' : '#FF3366';
+  const hfColor = healthFactor > 1.5 ? '#2973ff' : healthFactor > 1.1 ? '#F59E0B' : '#ef4444';
   const hfLabel = healthFactor > 1.5 ? 'SAFE' : healthFactor > 1.1 ? 'CAUTION' : 'DANGER';
 
   const stakingYield = reserveInfo?.stakingYield || 3.2;
@@ -130,14 +130,14 @@ export default function PositionDashboard({
   return (
     <div className="card-glow p-6">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="text-base font-black gradient-text tracking-tight">Your Position</h2>
+        <h2 className="text-base font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>Your Position</h2>
         {hasPosition && (
           <div
             className="flex items-center gap-2 px-3 py-1.5 rounded-full"
             style={{ background: `${hfColor}15`, border: `1px solid ${hfColor}30` }}
           >
             <div
-              className={`w-1.5 h-1.5 rounded-full ${healthFactor > 1.5 ? 'pulse-safe' : 'pulse-danger'}`}
+              className="w-1.5 h-1.5 rounded-full"
               style={{ background: hfColor }}
             />
             <span className="text-[10px] font-bold font-mono tracking-widest" style={{ color: hfColor }}>

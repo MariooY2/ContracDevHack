@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect, Fragment } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, useScroll, animate as motionAnimate } from 'framer-motion';
 import Link from 'next/link';
-import type { AggStats } from '@/components/MarketsTable';
 
 /* ─── CountUp Component ──────────────────────────────────── */
 function CountUp({ value, decimals = 1, suffix = '', prefix = '', commas = false, className = '' }: {
@@ -26,46 +25,9 @@ function CountUp({ value, decimals = 1, suffix = '', prefix = '', commas = false
   }, [mv, value]);
 
   return (
-    <span className={`font-black font-mono gradient-text ${className}`}>
+    <span className={`font-black ${className}`} style={{ color: 'var(--text-primary)' }}>
       {prefix}<motion.span>{display}</motion.span>{suffix}
     </span>
-  );
-}
-
-/* ─── Flash Loan Loop Visualizer ─────────────────────────── */
-const LOOP_NODES = ['Flash\nBorrow', 'Swap\nWETH→LST', 'Supply\nCollateral', 'Borrow\nWETH', 'Repay\nFlash Loan'];
-
-function FlashLoanLoop() {
-  return (
-    <div className="mt-4 relative" style={{ height: 80 }}>
-      <div className="flex items-center justify-between gap-0.5 h-full">
-        {LOOP_NODES.map((node, i) => (
-          <Fragment key={i}>
-            <div
-              className="flash-node shrink-0 flex flex-col items-center justify-center rounded-lg px-1.5 py-1 text-center"
-              style={{
-                background: 'rgba(0,194,255,0.08)',
-                border: '1px solid rgba(0,194,255,0.2)',
-                width: 64,
-                height: 44,
-                animationDelay: `${i * 0.6}s`,
-              }}
-            >
-              <span className="text-[7px] font-mono font-bold leading-tight whitespace-pre-line" style={{ color: '#00C2FF' }}>
-                {node}
-              </span>
-            </div>
-            {i < LOOP_NODES.length - 1 && (
-              <div className="shrink-0 w-3 flex items-center">
-                <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                  <path d="M1 4h6M7 1l3 3-3 3" stroke="rgba(0,194,255,0.4)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-            )}
-          </Fragment>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -89,6 +51,317 @@ function SectionHeader({ label, title, description }: { label: string; title: st
   );
 }
 
+/* ─── VoltBolt — Animated lightning bolt behind wordmark ──── */
+function VoltBolt() {
+  return (
+    <motion.svg
+      viewBox="0 0 24 24"
+      className="absolute pointer-events-none"
+      style={{
+        width: 'clamp(140px, 22vw, 220px)',
+        height: 'auto',
+        left: '50%',
+        top: '50%',
+        transform: 'translate(-50%, -50%)',
+      }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: [0, 0.1, 0.06, 0.1] }}
+      transition={{ delay: 1.2, duration: 4, repeat: Infinity, repeatType: 'reverse' }}
+    >
+      <motion.path
+        d="M13 2L4.09 12.37A1 1 0 0 0 5 14H12L10 22L19.91 11.63A1 1 0 0 0 19 10H12L13 2Z"
+        fill="none"
+        stroke="var(--accent-primary)"
+        strokeWidth="0.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        initial={{ pathLength: 0, opacity: 0 }}
+        animate={{ pathLength: 1, opacity: 1 }}
+        transition={{ delay: 0.6, duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+      />
+      <motion.path
+        d="M13 2L4.09 12.37A1 1 0 0 0 5 14H12L10 22L19.91 11.63A1 1 0 0 0 19 10H12L13 2Z"
+        fill="rgba(41,115,255,0.03)"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.8, duration: 0.8 }}
+      />
+    </motion.svg>
+  );
+}
+
+/* ─── Typewriter — Character-by-character typing effect ──── */
+function TypewriterHeadline() {
+  const text1 = 'Amplify Your ';
+  const text2 = 'Staking Yield';
+  const fullText = text1 + text2;
+  const [charCount, setCharCount] = useState(0);
+  const [showCursor, setShowCursor] = useState(true);
+
+  useEffect(() => {
+    if (charCount < fullText.length) {
+      const delay = charCount === 0 ? 1200 : 35 + Math.random() * 25;
+      const timer = setTimeout(() => setCharCount((c) => c + 1), delay);
+      return () => clearTimeout(timer);
+    } else {
+      const timer = setTimeout(() => setShowCursor(false), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [charCount, fullText.length]);
+
+  const typed = fullText.slice(0, charCount);
+  const plain = typed.slice(0, Math.min(charCount, text1.length));
+  const accent = charCount > text1.length ? typed.slice(text1.length) : '';
+
+  return (
+    <h2
+      className="font-black leading-[1.05] mb-6"
+      style={{ fontSize: 'clamp(2.5rem, 7vw, 4.5rem)', letterSpacing: '-0.03em', color: 'var(--text-primary)' }}
+    >
+      {plain}
+      {accent && <span style={{ color: 'var(--accent-primary)' }}>{accent}</span>}
+      {showCursor && <span className="typewriter-cursor" />}
+    </h2>
+  );
+}
+
+/* ─── FloatingBadges — Drifting protocol pills ──────────── */
+const BADGES = [
+  { text: 'Morpho Blue', x: '8%', y: '18%', delay: 0, anim: 'float-y', dur: '5s', color: '#2973ff' },
+  { text: 'Flash Loans', x: '85%', y: '22%', delay: 0.5, anim: 'float-y-alt', dur: '4.5s', color: '#a78bfa' },
+  { text: 'Up to 28x', x: '5%', y: '72%', delay: 1.0, anim: 'float-diagonal', dur: '6s', color: '#10B981' },
+  { text: 'Atomic', x: '88%', y: '68%', delay: 0.3, anim: 'float-y', dur: '5.5s', color: '#F59E0B' },
+  { text: 'Risk Analytics', x: '15%', y: '45%', delay: 0.8, anim: 'float-y-alt', dur: '4s', color: '#00C2FF' },
+  { text: 'Multi-Chain', x: '82%', y: '45%', delay: 1.2, anim: 'float-diagonal', dur: '5s', color: '#ef4444' },
+];
+
+function FloatingBadges() {
+  return (
+    <div className="absolute inset-0 pointer-events-none hidden md:block overflow-hidden">
+      {BADGES.map((badge, i) => (
+        <motion.div
+          key={badge.text}
+          className="absolute"
+          style={{ left: badge.x, top: badge.y, animation: `${badge.anim} ${badge.dur} ease-in-out infinite`, animationDelay: `${badge.delay}s` }}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 1.5 + i * 0.15, duration: 0.6 }}
+        >
+          <div
+            className="px-3 py-1.5 rounded-full font-mono text-[10px] font-bold tracking-wider whitespace-nowrap"
+            style={{
+              background: `${badge.color}0a`,
+              border: `1px solid ${badge.color}20`,
+              color: badge.color,
+            }}
+          >
+            {badge.text}
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+/* ─── ParticleGrid — Animated floating dots with lines ──── */
+const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
+  x: `${5 + (i % 6) * 17 + (i * 7.3) % 8}%`,
+  y: `${10 + Math.floor(i / 6) * 30 + (i * 13.7) % 15}%`,
+  size: 2 + (i * 1.7) % 2,
+  delay: (i * 0.97) % 4,
+  duration: 4 + (i * 1.3) % 4,
+}));
+
+function ParticleGrid() {
+  return (
+    <div className="absolute inset-0 pointer-events-none hidden md:block overflow-hidden" style={{ opacity: 0.5 }}>
+      {PARTICLES.map((p, i) => (
+        <div
+          key={i}
+          className="absolute rounded-full"
+          style={{
+            left: p.x,
+            top: p.y,
+            width: p.size,
+            height: p.size,
+            background: 'rgba(41,115,255,0.5)',
+            animation: `particle-float ${p.duration}s ease-in-out infinite`,
+            animationDelay: `${p.delay}s`,
+          }}
+        />
+      ))}
+      <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.08 }}>
+        <line x1="10%" y1="20%" x2="27%" y2="35%" stroke="#2973ff" strokeWidth="0.5" />
+        <line x1="27%" y1="35%" x2="44%" y2="22%" stroke="#2973ff" strokeWidth="0.5" />
+        <line x1="44%" y1="22%" x2="61%" y2="38%" stroke="#2973ff" strokeWidth="0.5" />
+        <line x1="61%" y1="38%" x2="78%" y2="25%" stroke="#2973ff" strokeWidth="0.5" />
+        <line x1="78%" y1="25%" x2="90%" y2="40%" stroke="#2973ff" strokeWidth="0.5" />
+        <line x1="15%" y1="55%" x2="35%" y2="65%" stroke="#a78bfa" strokeWidth="0.5" />
+        <line x1="35%" y1="65%" x2="55%" y2="55%" stroke="#a78bfa" strokeWidth="0.5" />
+        <line x1="55%" y1="55%" x2="75%" y2="65%" stroke="#a78bfa" strokeWidth="0.5" />
+        <line x1="75%" y1="65%" x2="88%" y2="55%" stroke="#a78bfa" strokeWidth="0.5" />
+      </svg>
+    </div>
+  );
+}
+
+/* ─── TiltCard — 3D perspective tilt on hover ────────────── */
+function TiltCard({ children, className, style }: {
+  children: React.ReactNode; className?: string; style?: React.CSSProperties;
+}) {
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  return (
+    <div
+      className={className}
+      style={{
+        ...style,
+        transform: `perspective(800px) rotateX(${tilt.y}deg) rotateY(${tilt.x}deg)`,
+        transition: 'transform 0.25s ease, border-color 0.25s, box-shadow 0.25s',
+        willChange: 'transform',
+      }}
+      onMouseMove={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width - 0.5) * 6;
+        const y = ((e.clientY - rect.top) / rect.height - 0.5) * -6;
+        setTilt({ x, y });
+      }}
+      onMouseLeave={() => setTilt({ x: 0, y: 0 })}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* ─── FlashLoanVisualizer — Animated atomic loop diagram ─── */
+function FlashLoanVisualizer() {
+  const nodes = [
+    { label: 'Flash Loan', sub: 'Borrow WETH', x: 300, y: 45 },
+    { label: 'Swap', sub: 'WETH → LST', x: 520, y: 155 },
+    { label: 'Supply', sub: 'Add Collateral', x: 445, y: 315 },
+    { label: 'Borrow', sub: 'More WETH', x: 155, y: 315 },
+    { label: 'Repay', sub: 'Flash Loan', x: 80, y: 155 },
+  ];
+
+  // Circular path connecting all nodes
+  const pathData = `M 300 65 C 420 65, 520 100, 520 155 C 520 220, 500 280, 445 315 C 380 350, 220 350, 155 315 C 100 280, 80 220, 80 155 C 80 100, 180 65, 300 65`;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true, margin: '-60px' }}
+      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+      className="hidden md:flex justify-center mb-20 -mt-8"
+    >
+      <div className="relative" style={{ width: 600, height: 380 }}>
+        <svg width="600" height="380" viewBox="0 0 600 380" fill="none" className="absolute inset-0">
+          {/* Connection path */}
+          <motion.path
+            d={pathData}
+            stroke="rgba(41,115,255,0.12)"
+            strokeWidth="1.5"
+            strokeDasharray="6 4"
+            fill="none"
+            initial={{ pathLength: 0 }}
+            whileInView={{ pathLength: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3, duration: 1.5, ease: 'easeInOut' }}
+          />
+
+          {/* Animated flowing dots */}
+          {[0, 1, 2].map((i) => (
+            <motion.circle
+              key={i}
+              r="3"
+              fill="#2973ff"
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: [0, 1, 1, 0] }}
+              viewport={{ once: true }}
+              transition={{ delay: 1.5 + i * 1.2, duration: 3.6, repeat: Infinity, ease: 'linear' }}
+            >
+              <animateMotion
+                dur="3.6s"
+                repeatCount="indefinite"
+                begin={`${1.5 + i * 1.2}s`}
+                path={pathData}
+              />
+            </motion.circle>
+          ))}
+
+          {/* Glow trail for dots */}
+          {[0, 1, 2].map((i) => (
+            <motion.circle
+              key={`glow-${i}`}
+              r="8"
+              fill="rgba(41,115,255,0.15)"
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: [0, 0.5, 0.5, 0] }}
+              viewport={{ once: true }}
+              transition={{ delay: 1.5 + i * 1.2, duration: 3.6, repeat: Infinity, ease: 'linear' }}
+            >
+              <animateMotion
+                dur="3.6s"
+                repeatCount="indefinite"
+                begin={`${1.5 + i * 1.2}s`}
+                path={pathData}
+              />
+            </motion.circle>
+          ))}
+        </svg>
+
+        {/* Nodes */}
+        {nodes.map((node, i) => (
+          <motion.div
+            key={node.label}
+            className="absolute flex flex-col items-center"
+            style={{ left: node.x, top: node.y, transform: 'translate(-50%, -50%)' }}
+            initial={{ opacity: 0, scale: 0.8 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 + i * 0.12, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div
+              className="px-4 py-2.5 rounded-xl text-center"
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                minWidth: 100,
+              }}
+            >
+              <p className="font-sans font-bold" style={{ color: 'var(--text-primary)', fontSize: '12px' }}>{node.label}</p>
+              <p className="font-sans" style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{node.sub}</p>
+            </div>
+          </motion.div>
+        ))}
+
+        {/* Center label */}
+        <motion.div
+          className="absolute flex flex-col items-center"
+          style={{ left: 300, top: 190, transform: 'translate(-50%, -50%)' }}
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: 1.0, duration: 0.6 }}
+        >
+          <div
+            className="px-4 py-2 rounded-full"
+            style={{
+              background: 'rgba(41,115,255,0.06)',
+              border: '1px solid rgba(41,115,255,0.2)',
+              animation: 'subtle-pulse 3s ease-in-out infinite',
+            }}
+          >
+            <span className="font-sans font-bold" style={{ color: 'var(--accent-primary)', fontSize: '11px', letterSpacing: '0.15em' }}>
+              ATOMIC
+            </span>
+          </div>
+          <p className="font-sans mt-1" style={{ color: 'var(--text-muted)', fontSize: '9px' }}>One Block</p>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
+
 /* ─── How It Works Steps ─────────────────────────────────── */
 const STEPS = [
   {
@@ -102,8 +375,6 @@ const STEPS = [
         <path d="M18 12a1 1 0 100 4h4v-4h-4z" />
       </svg>
     ),
-    color: '#00FFD1',
-    extra: null,
   },
   {
     num: '02',
@@ -114,8 +385,6 @@ const STEPS = [
         <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
       </svg>
     ),
-    color: '#00C2FF',
-    extra: 'flash-loop',
   },
   {
     num: '03',
@@ -127,8 +396,6 @@ const STEPS = [
         <path d="M17 6h6v6" />
       </svg>
     ),
-    color: '#A78BFA',
-    extra: null,
   },
 ];
 
@@ -181,7 +448,7 @@ const SECURITY_FEATURES = [
 /* ─── Animation Variants ─────────────────────────────────── */
 const heroContainer = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.15, delayChildren: 1.0 } },
+  visible: { transition: { staggerChildren: 0.15, delayChildren: 0.3 } },
 };
 
 const fadeUpBlur = {
@@ -189,74 +456,26 @@ const fadeUpBlur = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.7 } },
 };
 
-const wordStagger = {
+const voltLetters = ['V', 'O', 'L', 'T'];
+
+const letterContainer = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.08, delayChildren: 0.3 } },
+  visible: { transition: { staggerChildren: 0.08, delayChildren: 0.2 } },
 };
 
-const wordReveal = {
-  hidden: { opacity: 0, y: 30, filter: 'blur(8px)' },
+const letterVariant = {
+  hidden: { opacity: 0, y: 40, scale: 0.85, filter: 'blur(8px)' },
   visible: {
-    opacity: 1, y: 0, filter: 'blur(0px)',
-    transition: { type: 'spring' as const, damping: 20, stiffness: 100 },
+    opacity: 1, y: 0, scale: 1, filter: 'blur(0px)',
+    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
   },
 };
 
 /* ─── Page ───────────────────────────────────────────────── */
-const FEATURED_MARKET_ID = '0x3a4048c64ba1b375330d376b1ce40e4047d03b47ab4d48af484edec9fec801ba';
-const FEATURED_LEV = 18;
-const MIN_TVL_ETH = 10;
-
-function getTvlEth(supplyAssets: string) {
-  return parseFloat(supplyAssets) / 1e18;
-}
-
 export default function Home() {
   const heroRef = useRef<HTMLDivElement>(null);
-  const [stats, setStats] = useState<AggStats | null>(null);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const [mkRes, yldRes] = await Promise.all([
-          fetch('/api/markets', { cache: 'no-store' }),
-          fetch('/api/yields'),
-        ]);
-        if (!mkRes.ok) return;
-        const { markets } = await mkRes.json();
-        const yields: Record<string, number> = {};
-        if (yldRes.ok) {
-          const yd = await yldRes.json();
-          if (yd?.yields) Object.assign(yields, yd.yields);
-        }
-        const filtered = (markets || []).filter((m: { supplyAssets: string }) => getTvlEth(m.supplyAssets) >= MIN_TVL_ETH);
-        if (filtered.length === 0) return;
-
-        const totalTvl = filtered.reduce((s: number, m: { supplyAssets: string }) => s + getTvlEth(m.supplyAssets), 0);
-        const avgSupplyApy = filtered.reduce((s: number, m: { supplyApy: number }) => s + m.supplyApy, 0) / filtered.length;
-        const avgBorrowApy = filtered.reduce((s: number, m: { borrowApy: number }) => s + m.borrowApy, 0) / filtered.length;
-
-        let topNetApy = 0;
-        let bestMarket: any = null; // eslint-disable-line @typescript-eslint/no-explicit-any
-        let pinnedMarket: any = null; // eslint-disable-line @typescript-eslint/no-explicit-any
-        for (const m of filtered) {
-          const collYieldDecimal = (yields[m.collateralSymbol] || 2.5) / 100;
-          const net = ((m.supplyApy + collYieldDecimal) * FEATURED_LEV - m.borrowApy * (FEATURED_LEV - 1)) * 100;
-          if (net > topNetApy) { topNetApy = net; bestMarket = { ...m, netApy: net, leverage: FEATURED_LEV }; }
-          if (m.uniqueKey === FEATURED_MARKET_ID) { pinnedMarket = { ...m, netApy: net, leverage: FEATURED_LEV }; }
-        }
-        const feat = pinnedMarket || bestMarket;
-        setStats({
-          totalTvl, marketCount: filtered.length, avgSupplyApy, topNetApy, avgBorrowApy,
-          topMarket: feat ? {
-            pair: feat.pair, uniqueKey: feat.uniqueKey, netApy: feat.netApy, leverage: feat.leverage,
-            lltv: feat.lltv, tvlEth: getTvlEth(feat.supplyAssets), collYield: yields[feat.collateralSymbol] || 0,
-          } : null,
-        });
-      } catch { /* silently ignore */ }
-    }
-    load();
-  }, []);
+  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
+  const [hasMoved, setHasMoved] = useState(false);
 
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -266,16 +485,34 @@ export default function Home() {
   const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
   return (
-    <>
+    <div
+      className="relative"
+      onMouseMove={(e) => {
+        if (!hasMoved) setHasMoved(true);
+        setMousePos({ x: e.clientX, y: e.clientY });
+      }}
+    >
+      {/* Mouse-tracking gradient orb */}
+      <div
+        className="fixed inset-0 z-0 pointer-events-none"
+        style={hasMoved ? {
+          background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(41,115,255,0.07), transparent 70%)`,
+          transition: 'background 0.15s ease',
+        } : {}}
+      />
+
       {/* ═══════════════════════════════════════════════════════
           HERO
           ═══════════════════════════════════════════════════════ */}
-      <div ref={heroRef} className="min-h-[calc(100vh-64px)] flex flex-col justify-center relative -mt-6 mb-28">
-        {/* Background — single subtle gradient, no excessive effects */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-          <div className="hero-blob hero-blob-cyan" />
-          <div className="hero-blob hero-blob-purple" />
-        </div>
+      <div
+        ref={heroRef}
+        className="min-h-[calc(100vh-64px)] flex flex-col justify-center relative -mt-6 mb-28"
+      >
+        {/* Particle grid background */}
+        <ParticleGrid />
+
+        {/* Floating protocol badges */}
+        <FloatingBadges />
 
         <motion.div
           style={{ y: heroY, opacity: heroOpacity }}
@@ -284,95 +521,43 @@ export default function Home() {
           animate="visible"
           className="text-center relative z-10 px-4"
         >
-          {/* VOLT Wordmark — Electric Charge-In */}
-          <div className="mb-4">
-            <div
-              className="flex items-center justify-center"
-              style={{ fontSize: 'clamp(6rem, 16vw, 12rem)', lineHeight: 1 }}
+          {/* VOLT Wordmark — animated gradient + bolt */}
+          <div className="mb-4 relative inline-block">
+            <VoltBolt />
+            <motion.h1
+              className="volt-gradient-text volt-glow font-black flex items-center justify-center relative"
+              style={{ fontSize: 'clamp(6rem, 16vw, 12rem)', lineHeight: 1, letterSpacing: '-0.03em' }}
+              variants={letterContainer}
+              initial="hidden"
+              animate="visible"
             >
-              {['V', 'O', 'L', 'T'].map((letter, i) => (
-                <span
-                  key={letter + i}
-                  className="volt-letter"
-                  style={{
-                    animation: `volt-flicker 0.6s ${0.3 + i * 0.15}s ease-out forwards, volt-glow-pulse 4s ${0.9 + i * 0.15}s ease-in-out infinite`,
-                    position: letter === 'O' ? 'relative' : undefined,
-                  }}
+              {voltLetters.map((letter, i) => (
+                <motion.span
+                  key={i}
+                  variants={letterVariant}
+                  style={{ display: 'inline-block' }}
                 >
                   {letter}
-                  {letter === 'O' && (
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      className="absolute"
-                      style={{
-                        width: '28%', height: '28%',
-                        top: '50%', left: '40%',
-                        transform: 'translate(-50%, -50%)',
-                        opacity: 0.5,
-                      }}
-                    >
-                      <path
-                        d="M13 2L4.09 12.37A1 1 0 0 0 5 14H11L11 22L19.91 11.63A1 1 0 0 0 19 10H13L13 2Z"
-                        fill="#00FFD1"
-                      />
-                    </svg>
-                  )}
-                </span>
+                </motion.span>
               ))}
-            </div>
-
-            {/* Underline sweep */}
-            <div className="flex justify-center mt-2">
-              <motion.div
-                className="volt-underline"
-                style={{ width: 'min(280px, 60vw)' }}
-                initial={{ scaleX: 0, opacity: 0 }}
-                animate={{ scaleX: 1, opacity: 1 }}
-                transition={{ delay: 1.0, duration: 0.6, ease: 'easeOut' }}
-              />
-            </div>
-
-            {/* PROTOCOL subtitle */}
+            </motion.h1>
             <motion.p
               className="font-sans tracking-[0.3em] uppercase font-semibold mt-3"
               style={{ color: 'var(--text-muted)', fontSize: '11px' }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 1.3, duration: 0.5 }}
+              transition={{ delay: 0.7, duration: 0.5 }}
             >
               PROTOCOL
             </motion.p>
           </div>
 
-          {/* Headline — outcome-first */}
+          {/* Typewriter headline */}
           <motion.div variants={fadeUpBlur}>
-            <h1
-              className="font-black leading-[1.05] mb-6"
-              style={{ fontSize: 'clamp(2.5rem, 7vw, 4.5rem)', letterSpacing: '-0.03em', color: 'var(--text-primary)' }}
-            >
-              <motion.span variants={wordStagger} initial="hidden" animate="visible"
-                           className="inline-flex flex-wrap justify-center gap-x-[0.3em]">
-                {['Amplify', 'Your'].map((word) => (
-                  <motion.span key={word} variants={wordReveal} className="inline-block">
-                    {word}
-                  </motion.span>
-                ))}
-              </motion.span>
-              <br />
-              <motion.span variants={wordStagger} initial="hidden" animate="visible"
-                           className="inline-flex flex-wrap justify-center gap-x-[0.3em]">
-                {['Staking', 'Yield'].map((word) => (
-                  <motion.span key={word} variants={wordReveal}
-                               className="inline-block gradient-text-animated">
-                    {word}
-                  </motion.span>
-                ))}
-              </motion.span>
-            </h1>
+            <TypewriterHeadline />
           </motion.div>
 
-          {/* Subheadline — sans-serif for readability */}
+          {/* Subheadline */}
           <motion.p
             variants={fadeUpBlur}
             className="font-sans max-w-lg mx-auto mb-8"
@@ -387,8 +572,8 @@ export default function Home() {
             <Link href="/markets">
               <motion.div
                 className="btn-primary w-auto inline-flex items-center justify-center gap-2 px-10 cursor-pointer"
-                whileHover={{ scale: 1.03, boxShadow: '0 8px 40px rgba(0,255,209,0.35)' }}
-                whileTap={{ scale: 0.97 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 20 }}
               >
                 Launch App
@@ -406,37 +591,18 @@ export default function Home() {
             </Link>
           </motion.div>
 
-          {/* Stats strip — large numbers */}
-          {stats && (
-            <motion.div variants={fadeUpBlur} className="flex justify-center">
-              <div className="stat-strip inline-flex px-2">
-                <div className="stat-strip-item">
-                  <span className="font-sans uppercase tracking-[0.15em] font-semibold" style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Total TVL</span>
-                  <CountUp value={stats.totalTvl} decimals={0} suffix=" ETH" commas className="text-2xl sm:text-3xl" />
-                </div>
-                <div className="stat-strip-item">
-                  <span className="font-sans uppercase tracking-[0.15em] font-semibold" style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Markets</span>
-                  <CountUp value={stats.marketCount} decimals={0} className="text-2xl sm:text-3xl" />
-                </div>
-                <div className="stat-strip-item">
-                  <span className="font-sans uppercase tracking-[0.15em] font-semibold" style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Top Net APY</span>
-                  <CountUp value={stats.topNetApy} decimals={1} suffix="%" className="text-2xl sm:text-3xl" />
-                </div>
-              </div>
-            </motion.div>
-          )}
         </motion.div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════
-          HOW IT WORKS — Connected Flow (preserved)
+          HOW IT WORKS
           ═══════════════════════════════════════════════════════ */}
       <motion.div
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true, margin: '-80px' }}
         transition={{ duration: 0.5 }}
-        className="mb-28"
+        className="mb-12"
       >
         <SectionHeader
           label="HOW IT WORKS"
@@ -444,63 +610,72 @@ export default function Home() {
           description="VOLT handles the entire leverage loop atomically — no manual steps, no price exposure between transactions."
         />
 
-        {/* Desktop: horizontal flow with connectors */}
-        <div className="hidden md:flex items-stretch gap-0 max-w-5xl mx-auto">
+        {/* Desktop: horizontal with 3D tilt + connectors */}
+        <div className="hidden md:flex items-stretch gap-4 max-w-5xl mx-auto relative">
           {STEPS.map((step, i) => (
-            <Fragment key={step.num}>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.15, duration: 0.5 }}
-                className="relative flex-1 p-6 rounded-2xl group transition-all duration-300"
+            <motion.div
+              key={step.num}
+              initial={{ opacity: 0, y: 24, scale: 0.97 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              className="flex-1"
+            >
+              <TiltCard
+                className="relative p-6 rounded-2xl h-full"
                 style={{
-                  background: 'rgba(10, 15, 31, 0.7)',
+                  background: 'var(--bg-card)',
                   border: '1px solid var(--border)',
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = `${step.color}25`;
-                  e.currentTarget.style.boxShadow = `0 8px 40px ${step.color}06`;
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border)';
-                  e.currentTarget.style.boxShadow = 'none';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}
               >
-                <span className="step-watermark" style={{ color: step.color }}>{step.num}</span>
+                <span className="absolute top-3 right-4 font-black text-6xl opacity-[0.04]" style={{ color: 'var(--text-primary)' }}>{step.num}</span>
                 <div
                   className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
-                  style={{ background: `${step.color}10`, color: step.color, boxShadow: `0 0 30px ${step.color}12` }}
+                  style={{ background: 'rgba(41,115,255,0.08)', color: 'var(--accent-primary)' }}
                 >
                   {step.icon}
                 </div>
                 <h3 className="font-sans font-bold mb-2" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-body)' }}>{step.title}</h3>
                 <p className="font-sans leading-relaxed" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }}>{step.desc}</p>
-                {step.extra === 'flash-loop' && <FlashLoanLoop />}
-              </motion.div>
-
-              {i < STEPS.length - 1 && (
-                <div className="flow-connector w-10 self-center mx-1">
-                  <motion.div
-                    className="flow-connector-line"
-                    style={{ background: `linear-gradient(90deg, ${step.color}, ${STEPS[i + 1].color})` }}
-                    initial={{ scaleX: 0 }}
-                    whileInView={{ scaleX: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.3 + i * 0.2, duration: 0.6 }}
-                  />
-                  <motion.div
-                    className="flow-particle"
-                    style={{ background: STEPS[i + 1].color, boxShadow: `0 0 8px ${STEPS[i + 1].color}` }}
-                    animate={{ left: ['0%', '100%'] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: 'linear', delay: 0.8 + i * 0.3 }}
-                  />
-                </div>
-              )}
-            </Fragment>
+              </TiltCard>
+            </motion.div>
           ))}
+
+          {/* Connector arrows between cards */}
+          <svg className="absolute top-1/2 left-0 w-full h-12 -translate-y-1/2 pointer-events-none" style={{ zIndex: 5 }}>
+            {[0, 1].map((i) => {
+              const x1 = `${33.33 * (i + 1) - 1}%`;
+              const x2 = `${33.33 * (i + 1) + 1}%`;
+              return (
+                <motion.line
+                  key={i}
+                  x1={x1} y1="50%" x2={x2} y2="50%"
+                  stroke="var(--accent-primary)"
+                  strokeWidth="1.5"
+                  strokeDasharray="4 3"
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  whileInView={{ pathLength: 1, opacity: 0.25 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.7 + i * 0.2, duration: 0.6 }}
+                />
+              );
+            })}
+            {/* Arrowheads */}
+            {[0, 1].map((i) => {
+              const cx = 33.33 * (i + 1) + 1.5;
+              return (
+                <motion.polygon
+                  key={`arrow-${i}`}
+                  points={`${cx - 0.6}%,35% ${cx + 0.4}%,50% ${cx - 0.6}%,65%`}
+                  fill="var(--accent-primary)"
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 0.25 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 1.0 + i * 0.2 }}
+                />
+              );
+            })}
+          </svg>
         </div>
 
         {/* Mobile: stacked */}
@@ -513,11 +688,10 @@ export default function Home() {
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
               className="relative p-5 rounded-2xl"
-              style={{ background: 'rgba(10, 15, 31, 0.7)', border: '1px solid var(--border)' }}
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
             >
-              <span className="step-watermark" style={{ color: step.color }}>{step.num}</span>
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${step.color}10`, color: step.color }}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(41,115,255,0.08)', color: 'var(--accent-primary)' }}>
                   {step.icon}
                 </div>
                 <div>
@@ -531,11 +705,16 @@ export default function Home() {
       </motion.div>
 
       {/* ═══════════════════════════════════════════════════════
+          FLASH LOAN VISUALIZER
+          ═══════════════════════════════════════════════════════ */}
+      <FlashLoanVisualizer />
+
+      {/* ═══════════════════════════════════════════════════════
           WHY VOLT — Comparison
           ═══════════════════════════════════════════════════════ */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
         viewport={{ once: true, margin: '-60px' }}
         transition={{ duration: 0.5 }}
         className="mb-28"
@@ -547,57 +726,85 @@ export default function Home() {
         />
 
         <div className="grid md:grid-cols-2 gap-5 max-w-3xl mx-auto">
-          {/* Manual */}
-          <div
+          {/* Manual — slides in from left */}
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className="p-6 rounded-2xl"
-            style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.06)' }}
+            style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid var(--border)' }}
           >
             <p className="font-sans uppercase tracking-[0.15em] font-semibold mb-5" style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
               Manual Leverage
             </p>
             <div className="space-y-3.5">
-              {MANUAL_ITEMS.map((text) => (
-                <div key={text} className="flex items-center gap-3">
+              {MANUAL_ITEMS.map((text, i) => (
+                <motion.div
+                  key={text}
+                  className="flex items-center gap-3"
+                  initial={{ opacity: 0, x: -10 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.15 + i * 0.08 }}
+                >
                   <span
                     className="w-5 h-5 rounded flex items-center justify-center shrink-0 font-bold"
-                    style={{ background: 'rgba(255,51,102,0.08)', color: '#FF3366', fontSize: '10px' }}
+                    style={{ background: 'rgba(255,119,146,0.08)', color: 'var(--color-danger)', fontSize: '10px' }}
                   >
                     ✕
                   </span>
                   <span className="font-sans" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-body)' }}>{text}</span>
-                </div>
+                </motion.div>
               ))}
             </div>
-          </div>
+          </motion.div>
 
-          {/* VOLT */}
-          <div
-            className="p-6 rounded-2xl relative overflow-hidden"
-            style={{ background: 'rgba(0,255,209,0.02)', border: '1px solid rgba(0,255,209,0.12)' }}
+          {/* VOLT — slides in from right */}
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="p-6 rounded-2xl"
+            style={{ background: 'rgba(41,115,255,0.03)', border: '1px solid rgba(41,115,255,0.15)' }}
           >
-            <div className="absolute top-0 left-0 right-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(0,255,209,0.3), transparent)' }} />
             <p className="font-sans uppercase tracking-[0.15em] font-semibold mb-5" style={{ color: 'var(--accent-primary)', fontSize: '11px' }}>
               VOLT Protocol
             </p>
             <div className="space-y-3.5">
-              {VOLT_ITEMS.map((text) => (
-                <div key={text} className="flex items-center gap-3">
+              {VOLT_ITEMS.map((text, i) => (
+                <motion.div
+                  key={text}
+                  className="flex items-center gap-3"
+                  initial={{ opacity: 0, x: 10 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.15 + i * 0.08 }}
+                >
                   <span
                     className="w-5 h-5 rounded flex items-center justify-center shrink-0 font-bold"
-                    style={{ background: 'rgba(0,255,209,0.08)', color: 'var(--accent-primary)', fontSize: '10px' }}
+                    style={{ background: 'rgba(41,115,255,0.08)', color: 'var(--accent-primary)', fontSize: '10px' }}
                   >
                     ✓
                   </span>
                   <span className="font-sans" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-body)' }}>{text}</span>
-                </div>
+                </motion.div>
               ))}
             </div>
-          </div>
+          </motion.div>
         </div>
 
-        <p className="font-sans font-medium text-center mt-6" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-body)' }}>
-          Same result. <span style={{ color: 'var(--accent-primary)' }}>75% less gas.</span> Zero execution risk.
-        </p>
+        <motion.p
+          className="font-sans font-medium text-center mt-6"
+          style={{ color: 'var(--text-muted)', fontSize: 'var(--text-body)' }}
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.4 }}
+        >
+          Same result. <span style={{ color: 'var(--accent-primary)' }}><CountUp value={75} decimals={0} suffix="% less gas." className="inline" /></span> Zero execution risk.
+        </motion.p>
       </motion.div>
 
       {/* ═══════════════════════════════════════════════════════
@@ -620,52 +827,50 @@ export default function Home() {
           {SECURITY_FEATURES.map((feature, i) => (
             <motion.div
               key={feature.title}
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 16, scale: 0.97 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.08, duration: 0.4 }}
-              className="p-6 rounded-2xl text-center transition-all duration-300"
-              style={{ background: 'rgba(10, 15, 31, 0.6)', border: '1px solid var(--border)' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(0,255,209,0.12)';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
+              transition={{ delay: i * 0.1, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             >
-              <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-4"
-                style={{ background: 'rgba(0,255,209,0.06)', color: 'var(--accent-primary)' }}
+              <TiltCard
+                className="p-6 rounded-2xl text-center h-full"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
               >
-                {feature.icon}
-              </div>
-              <h3 className="font-sans font-bold mb-2" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-body)' }}>
-                {feature.title}
-              </h3>
-              <p className="font-sans leading-relaxed" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }}>
-                {feature.desc}
-              </p>
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-4"
+                  style={{ background: 'rgba(41,115,255,0.08)', color: 'var(--accent-primary)' }}
+                >
+                  {feature.icon}
+                </div>
+                <h3 className="font-sans font-bold mb-2" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-body)' }}>
+                  {feature.title}
+                </h3>
+                <p className="font-sans leading-relaxed" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }}>
+                  {feature.desc}
+                </p>
+              </TiltCard>
             </motion.div>
           ))}
         </div>
 
-        {/* Auditor names — borrowed trust */}
+        {/* Auditor names */}
         <div className="flex items-center justify-center gap-6 sm:gap-10 flex-wrap">
-          {['Cantina', 'Spearbit', 'ChainSecurity', 'OpenZeppelin', 'Trail of Bits'].map((name) => (
-            <span
+          {['Cantina', 'Spearbit', 'ChainSecurity', 'OpenZeppelin', 'Trail of Bits'].map((name, i) => (
+            <motion.span
               key={name}
-              className="font-sans font-medium opacity-25 hover:opacity-50 transition-opacity duration-300"
-              style={{ color: 'var(--text-secondary)', fontSize: '12px', letterSpacing: '0.05em' }}
+              className="font-sans font-medium hover:opacity-50 transition-opacity duration-300"
+              style={{ color: 'var(--text-secondary)', fontSize: '12px', letterSpacing: '0.05em', opacity: 0.25 }}
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 0.25 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 + i * 0.08 }}
+              whileHover={{ opacity: 0.5 }}
             >
               {name}
-            </span>
+            </motion.span>
           ))}
         </div>
       </motion.div>
-
-
 
       {/* ═══════════════════════════════════════════════════════
           FINAL CTA
@@ -675,18 +880,31 @@ export default function Home() {
         whileInView={{ opacity: 1 }}
         viewport={{ once: true, margin: '-60px' }}
         transition={{ duration: 0.5 }}
-        className="mb-16 text-center py-20 relative"
+        className="mb-16 text-center py-20 relative rounded-3xl overflow-hidden grid-bg"
       >
+        {/* Subtle orb */}
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 50% 40% at 50% 50%, rgba(0,255,209,0.03) 0%, transparent 70%)' }}
+          style={{
+            background: 'radial-gradient(400px circle at 50% 50%, rgba(41,115,255,0.05), transparent 70%)',
+          }}
         />
+
         <div className="relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="mb-4"
+          >
+            <span className="badge-info">Get Started</span>
+          </motion.div>
           <h2
             className="font-sans font-black mb-4"
             style={{ color: 'var(--text-primary)', fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', letterSpacing: '-0.03em' }}
           >
-            Ready to Amplify Your Yield?
+            Ready to Amplify Your <span style={{ color: 'var(--accent-primary)' }}>Yield</span>?
           </h2>
           <p className="font-sans max-w-md mx-auto mb-8" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-body)' }}>
             One transaction. Maximum capital efficiency. Zero execution risk.
@@ -695,8 +913,8 @@ export default function Home() {
             <Link href="/markets">
               <motion.div
                 className="btn-primary w-auto inline-flex items-center justify-center gap-2 px-10 cursor-pointer"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
                 Launch App
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -714,6 +932,6 @@ export default function Home() {
           </div>
         </div>
       </motion.div>
-    </>
+    </div>
   );
 }

@@ -57,6 +57,7 @@ interface MarketInput {
   lltv: number;
   supplyApy: number;
   borrowApy: number;
+  chainSlug?: string;
 }
 
 export default function DashboardPage() {
@@ -118,7 +119,7 @@ export default function DashboardPage() {
         transition={{ duration: 0.4 }}
         className="mb-8"
       >
-        <h1 className="font-black gradient-text tracking-tight mb-1" style={{ fontSize: 'var(--text-h1)' }}>Dashboard</h1>
+        <h1 className="font-black tracking-tight mb-1" style={{ fontSize: 'var(--text-h1)', color: 'var(--text-primary)' }}>Dashboard</h1>
         <p className="font-sans" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-body)' }}>
           Your portfolio overview across all Morpho Blue markets
         </p>
@@ -199,7 +200,7 @@ export default function DashboardPage() {
                 { label: 'Total Collateral', value: `${stats.totalCollateral.toFixed(4)}`, sub: 'ETH', color: 'var(--text-primary)' },
                 { label: 'Total Debt', value: `${stats.totalDebt.toFixed(4)}`, sub: 'WETH', color: 'var(--accent-warning)' },
                 { label: 'Net Equity', value: `${stats.totalEquity.toFixed(4)}`, sub: 'ETH', color: 'var(--color-success)' },
-                { label: 'Avg Health', value: stats.weightedHf.toFixed(2), color: stats.weightedHf > 1.5 ? '#00FFD1' : stats.weightedHf > 1.1 ? '#F59E0B' : '#FF3366' },
+                { label: 'Avg Health', value: stats.weightedHf.toFixed(2), color: stats.weightedHf > 1.5 ? '#2973ff' : stats.weightedHf > 1.1 ? '#F59E0B' : '#ef4444' },
               ].map((item) => (
                 <div key={item.label} className="glass-inner p-3">
                   <p className="font-sans uppercase tracking-wider font-bold mb-1" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-micro)' }}>
@@ -236,12 +237,12 @@ export default function DashboardPage() {
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ delay: i * 0.05, duration: 0.3 }}
                   >
-                    <Link href={`/markets/${pos.marketId}`}>
+                    <Link href={`/markets/${pos.chainSlug || 'base'}/${pos.marketId}`}>
                       <div
                         className="rounded-2xl p-5 cursor-pointer transition-all duration-200 group relative overflow-hidden"
-                        style={{ background: 'rgba(10, 15, 31, 0.6)', border: '1px solid var(--border)' }}
+                        style={{ background: 'rgba(9, 9, 9, 0.6)', border: '1px solid var(--border)' }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = 'rgba(0,255,209,0.2)';
+                          e.currentTarget.style.borderColor = 'rgba(41,115,255,0.2)';
                           e.currentTarget.style.transform = 'translateY(-1px)';
                         }}
                         onMouseLeave={(e) => {
@@ -253,7 +254,7 @@ export default function DashboardPage() {
                           {/* Token icons */}
                           <div className="flex items-center -space-x-2 shrink-0">
                             <TokenIcon symbol={pos.collateralSymbol} size={36} />
-                            <div className="border-2 rounded-full" style={{ borderColor: 'rgba(10, 15, 31, 0.9)' }}>
+                            <div className="border-2 rounded-full" style={{ borderColor: 'rgba(9, 9, 9, 0.9)' }}>
                               <TokenIcon symbol={pos.loanSymbol} size={24} />
                             </div>
                           </div>
@@ -299,8 +300,8 @@ export default function DashboardPage() {
                               style={{
                                 fontSize: 'var(--text-micro)',
                                 color: 'var(--accent-primary)',
-                                background: 'rgba(0,255,209,0.06)',
-                                border: '1px solid rgba(0,255,209,0.12)',
+                                background: 'rgba(41,115,255,0.06)',
+                                border: '1px solid rgba(41,115,255,0.12)',
                               }}
                             >
                               Manage

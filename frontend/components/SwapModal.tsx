@@ -210,7 +210,7 @@ export default function SwapModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-          style={{ background: 'rgba(3,7,17,0.85)', backdropFilter: 'blur(8px)' }}
+          style={{ background: 'rgba(9,9,9,0.85)', backdropFilter: 'blur(8px)' }}
           onClick={onClose}
         >
           <motion.div
@@ -221,9 +221,9 @@ export default function SwapModal({
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-sm rounded-2xl p-6 space-y-4"
             style={{
-              background: 'rgba(10, 15, 31, 0.98)',
-              border: '1px solid rgba(0,255,209,0.2)',
-              boxShadow: '0 24px 80px rgba(0,0,0,0.8), 0 0 60px rgba(0,255,209,0.08)',
+              background: '#151516',
+              border: '1px solid var(--border-bright)',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.8)',
             }}
           >
             {/* Header */}
@@ -257,9 +257,9 @@ export default function SwapModal({
                   disabled={busy}
                   className="py-2 rounded-lg text-[11px] font-bold font-mono transition-all hover:opacity-80 truncate"
                   style={{
-                    color: selectedToken.symbol === token.symbol ? '#030711' : 'var(--text-secondary)',
+                    color: selectedToken.symbol === token.symbol ? '#ffffff' : 'var(--text-secondary)',
                     background: selectedToken.symbol === token.symbol
-                      ? 'linear-gradient(135deg, #00FFD1 0%, #00C2FF 100%)'
+                      ? '#2973ff'
                       : 'rgba(255,255,255,0.04)',
                     border: `1px solid ${selectedToken.symbol === token.symbol ? 'transparent' : 'var(--border)'}`,
                   }}
@@ -321,7 +321,7 @@ export default function SwapModal({
             <div className="flex justify-center -my-1">
               <div
                 className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ background: 'rgba(0,255,209,0.08)', border: '1px solid rgba(0,255,209,0.15)' }}
+                style={{ background: 'rgba(41,115,255,0.08)', border: '1px solid rgba(41,115,255,0.15)' }}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 5v14" /><path d="M19 12l-7 7-7-7" />
@@ -343,7 +343,7 @@ export default function SwapModal({
                 </span>
                 <span
                   className="text-sm font-bold font-mono py-1.5 px-3 rounded-lg shrink-0 text-center"
-                  style={{ background: 'rgba(0,255,209,0.06)', color: 'var(--accent-primary)', width: 90 }}
+                  style={{ background: 'rgba(41,115,255,0.06)', color: 'var(--accent-primary)', width: 90 }}
                 >
                   {collateralSymbol}
                 </span>
@@ -380,8 +380,8 @@ export default function SwapModal({
               <div
                 className="rounded-lg px-3 py-2 text-center text-[10px] font-mono font-bold"
                 style={{
-                  background: txIsError ? 'rgba(255,51,102,0.08)' : 'rgba(0,255,209,0.08)',
-                  border: `1px solid ${txIsError ? 'rgba(255,51,102,0.2)' : 'rgba(0,255,209,0.2)'}`,
+                  background: txIsError ? 'rgba(239,68,68,0.08)' : 'rgba(57,166,153,0.08)',
+                  border: `1px solid ${txIsError ? 'rgba(239,68,68,0.2)' : 'rgba(57,166,153,0.2)'}`,
                   color: txIsError ? 'var(--accent-secondary)' : 'var(--accent-primary)',
                 }}
               >
@@ -405,9 +405,8 @@ export default function SwapModal({
                   disabled={!quote || approving || quoteLoading}
                   className="flex-1 py-3 rounded-xl text-xs font-bold font-mono uppercase tracking-widest transition-all hover:opacity-90 disabled:opacity-40"
                   style={{
-                    background: 'linear-gradient(135deg, #00FFD1 0%, #00C2FF 100%)',
-                    color: '#030711',
-                    boxShadow: '0 4px 20px rgba(0,255,209,0.3)',
+                    background: '#2973ff',
+                    color: '#ffffff',
                   }}
                 >
                   {approving ? 'Approving...' : `Approve ${selectedToken.symbol}`}
@@ -418,9 +417,8 @@ export default function SwapModal({
                   disabled={!quote || swapping || quoteLoading || !amount}
                   className="flex-1 py-3 rounded-xl text-xs font-bold font-mono uppercase tracking-widest transition-all hover:opacity-90 disabled:opacity-40"
                   style={{
-                    background: 'linear-gradient(135deg, #00FFD1 0%, #00C2FF 100%)',
-                    color: '#030711',
-                    boxShadow: '0 4px 20px rgba(0,255,209,0.3)',
+                    background: '#2973ff',
+                    color: '#ffffff',
                   }}
                 >
                   {swapping ? 'Swapping...' : 'Swap'}

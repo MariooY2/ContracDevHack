@@ -27,7 +27,7 @@ export default function UnwindPanel({
   if (debtBalance === 0n) {
     return (
       <div className="card-glow p-6">
-        <h2 className="text-base font-black gradient-text tracking-tight mb-4">Unwind Position</h2>
+        <h2 className="text-base font-black tracking-tight mb-4" style={{ color: 'var(--text-primary)' }}>Unwind Position</h2>
         <div className="glass-inner p-10 text-center space-y-3">
           <div
             className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center"
@@ -48,12 +48,12 @@ export default function UnwindPanel({
   return (
     <div className="card-glow p-6">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="text-base font-black gradient-text tracking-tight">Unwind Position</h2>
+        <h2 className="text-base font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>Unwind Position</h2>
         {healthFactor > 0 && (
           <div
             className="px-3 py-1.5 rounded-full text-[10px] font-bold font-mono tracking-widest"
             style={{
-              background: 'rgba(0,255,209,0.08)',
+              background: 'rgba(41,115,255,0.08)',
               color: hfColor,
               border: `1px solid rgba(255,255,255,0.1)`,
             }}
@@ -91,9 +91,9 @@ export default function UnwindPanel({
           <span
             className="text-xs font-bold font-mono px-2 py-0.5 rounded-full"
             style={{
-              background: 'rgba(0,255,209,0.1)',
+              background: 'rgba(41,115,255,0.1)',
               color: 'var(--accent-primary)',
-              border: '1px solid rgba(0,255,209,0.2)',
+              border: '1px solid rgba(41,115,255,0.2)',
             }}
           >
             FREE (0%)
@@ -119,8 +119,8 @@ export default function UnwindPanel({
             exit={{ opacity: 0, y: 8 }}
             className="mt-3 p-3 rounded-xl text-center"
             style={{
-              background: isError ? 'rgba(255,51,102,0.07)' : 'rgba(0,255,209,0.07)',
-              border: `1px solid ${isError ? 'rgba(255,51,102,0.2)' : 'rgba(0,255,209,0.2)'}`,
+              background: isError ? 'rgba(239,68,68,0.07)' : 'rgba(41,115,255,0.07)',
+              border: `1px solid ${isError ? 'rgba(239,68,68,0.2)' : 'rgba(41,115,255,0.2)'}`,
             }}
           >
             <p

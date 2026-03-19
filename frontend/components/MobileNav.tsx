@@ -45,6 +45,15 @@ const items: MobileNavItem[] = [
       </svg>
     ),
   },
+  {
+    href: '/community',
+    label: 'Community',
+    icon: (active) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.5 : 1.5} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+      </svg>
+    ),
+  },
 ];
 
 export default function MobileNav() {
@@ -58,8 +67,8 @@ export default function MobileNav() {
       className="fixed bottom-0 left-0 right-0 z-50 sm:hidden border-t"
       style={{
         borderColor: 'var(--border)',
-        background: 'rgba(3, 7, 17, 0.92)',
-        backdropFilter: 'blur(24px) saturate(1.5)',
+        background: 'rgba(9, 9, 9, 0.92)',
+        backdropFilter: 'blur(24px)',
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
@@ -73,7 +82,7 @@ export default function MobileNav() {
               className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors"
               style={{
                 color: isActive ? 'var(--accent-primary)' : 'var(--text-muted)',
-                background: isActive ? 'rgba(0,255,209,0.06)' : 'transparent',
+                background: isActive ? 'rgba(41,115,255,0.08)' : 'transparent',
               }}
             >
               {item.icon(isActive)}

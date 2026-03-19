@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import SegmentedControl from './ui/SegmentedControl';
@@ -161,16 +161,32 @@ export interface AggStats {
 
 export interface MarketsTableProps {
   onStatsReady?: (stats: AggStats) => void;
+  defaultChain?: string;
 }
 
-export default function MarketsTable({ onStatsReady }: MarketsTableProps) {
+export default function MarketsTable({ onStatsReady, defaultChain }: MarketsTableProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialChain = defaultChain || searchParams.get('chain') || 'all';
   const [markets, setMarkets] = useState<MorphoMarket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('netApy');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
-  const [chainFilter, setChainFilter] = useState('all');
+  const [chainFilter, setChainFilterState] = useState(initialChain);
+
+  const setChainFilter = useCallback((slug: string) => {
+    setChainFilterState(slug);
+    // Update URL param without navigation
+    const params = new URLSearchParams(window.location.search);
+    if (slug === 'all') {
+      params.delete('chain');
+    } else {
+      params.set('chain', slug);
+    }
+    const qs = params.toString();
+    router.replace(`${window.location.pathname}${qs ? `?${qs}` : ''}`, { scroll: false });
+  }, [router]);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [leveragePreset, setLeveragePreset] = useState<LeveragePreset>('5');
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -239,16 +255,16 @@ export default function MarketsTable({ onStatsReady }: MarketsTableProps) {
     let topNetApy = 0;
     let bestMarket: (MorphoMarket & { netApy: number; leverage: number }) | null = null;
     let pinnedMarket: (MorphoMarket & { netApy: number; leverage: number }) | null = null;
-    const FEATURED_LEV = 18;
     for (const m of filtered) {
+      const maxLev = 1 / (1 - m.lltv);
       const collYieldDecimal = (tokenYields[m.collateralSymbol] || 2.5) / 100;
-      const net = ((m.supplyApy + collYieldDecimal) * FEATURED_LEV - m.borrowApy * (FEATURED_LEV - 1)) * 100;
+      const net = ((m.supplyApy + collYieldDecimal) * maxLev - m.borrowApy * (maxLev - 1)) * 100;
       if (net > topNetApy) {
         topNetApy = net;
-        bestMarket = { ...m, netApy: net, leverage: FEATURED_LEV };
+        bestMarket = { ...m, netApy: net, leverage: maxLev };
       }
       if (m.uniqueKey === FEATURED_MARKET_ID) {
-        pinnedMarket = { ...m, netApy: net, leverage: FEATURED_LEV };
+        pinnedMarket = { ...m, netApy: net, leverage: maxLev };
       }
     }
     const featuredMarket = pinnedMarket || bestMarket;
@@ -327,7 +343,7 @@ export default function MarketsTable({ onStatsReady }: MarketsTableProps) {
     <div>
       {/* Controls Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">
-        {/* Left: Chain Filters */}
+        {/* Left: Chain Filters — navigate via URL */}
         <div className="flex items-center gap-2 flex-wrap">
           {CHAIN_FILTERS.map(cf => {
             const isActive = chainFilter === cf.slug;
@@ -508,17 +524,17 @@ export default function MarketsTable({ onStatsReady }: MarketsTableProps) {
                     className="group"
                   >
                     <div
-                      className={`cursor-pointer rounded-2xl transition-all duration-300 relative overflow-hidden ${isFeatured ? 'card-border-glow' : ''}`}
+                      className="cursor-pointer rounded-2xl transition-all duration-300 relative overflow-hidden"
                       style={{
-                        background: isExpanded ? 'rgba(10, 15, 31, 0.9)' : 'rgba(10, 15, 31, 0.6)',
-                        border: isFeatured ? undefined : '1px solid var(--border)',
+                        background: isExpanded ? '#151516' : '#151516',
+                        border: isFeatured ? '1px solid rgba(41,115,255,0.3)' : '1px solid var(--border)',
                       }}
                       onMouseEnter={(e) => {
                         if (!isFeatured) {
                           const el = e.currentTarget;
                           el.style.borderColor = `${color}30`;
-                          el.style.background = 'rgba(10, 15, 31, 0.9)';
-                          el.style.boxShadow = `0 4px 32px ${color}08, 0 0 0 1px ${color}15`;
+                          el.style.background = '#151516';
+                          el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
                           el.style.transform = 'translateY(-1px)';
                         }
                       }}
@@ -526,7 +542,7 @@ export default function MarketsTable({ onStatsReady }: MarketsTableProps) {
                         if (!isFeatured) {
                           const el = e.currentTarget;
                           el.style.borderColor = 'var(--border)';
-                          el.style.background = isExpanded ? 'rgba(10, 15, 31, 0.9)' : 'rgba(10, 15, 31, 0.6)';
+                          el.style.background = isExpanded ? '#151516' : '#151516';
                           el.style.boxShadow = 'none';
                           el.style.transform = 'translateY(0)';
                         }
@@ -550,7 +566,7 @@ export default function MarketsTable({ onStatsReady }: MarketsTableProps) {
                             <div className="rounded-full ring-2 ring-transparent group-hover:ring-[rgba(255,255,255,0.08)] transition-all duration-300">
                               <TokenIcon symbol={market.collateralSymbol} size={36} />
                             </div>
-                            <div className="-ml-3 border-2 rounded-full" style={{ borderColor: 'rgba(10, 15, 31, 0.9)' }}>
+                            <div className="-ml-3 border-2 rounded-full" style={{ borderColor: '#151516' }}>
                               <TokenIcon symbol={market.loanSymbol} size={24} />
                             </div>
                           </div>
@@ -584,9 +600,9 @@ export default function MarketsTable({ onStatsReady }: MarketsTableProps) {
                                   className="font-sans font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                                   style={{
                                     fontSize: '7px',
-                                    background: 'rgba(0,255,209,0.1)',
+                                    background: 'rgba(41,115,255,0.1)',
                                     color: 'var(--accent-primary)',
-                                    border: '1px solid rgba(0,255,209,0.2)',
+                                    border: '1px solid rgba(41,115,255,0.2)',
                                   }}
                                 >
                                   Live Leverage
@@ -602,9 +618,9 @@ export default function MarketsTable({ onStatsReady }: MarketsTableProps) {
                             className="font-mono font-bold px-2 py-1 rounded-lg"
                             style={{
                               fontSize: 'var(--text-caption)',
-                              background: market.lltv >= 0.94 ? 'rgba(0,255,209,0.06)' : 'rgba(245,158,11,0.06)',
+                              background: market.lltv >= 0.94 ? 'rgba(41,115,255,0.06)' : 'rgba(245,158,11,0.06)',
                               color: market.lltv >= 0.94 ? 'var(--accent-primary)' : 'var(--accent-warning)',
-                              border: `1px solid ${market.lltv >= 0.94 ? 'rgba(0,255,209,0.15)' : 'rgba(245,158,11,0.15)'}`,
+                              border: `1px solid ${market.lltv >= 0.94 ? 'rgba(41,115,255,0.15)' : 'rgba(245,158,11,0.15)'}`,
                             }}
                           >
                             {(market.lltv * 100).toFixed(1)}%
@@ -707,7 +723,7 @@ export default function MarketsTable({ onStatsReady }: MarketsTableProps) {
                                   <span className="font-sans uppercase tracking-wider font-bold" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-micro)' }}>
                                     Collateral Yield
                                   </span>
-                                  <span className="font-mono font-bold" style={{ color: '#A78BFA', fontSize: 'var(--text-body)' }}>
+                                  <span className="font-mono font-bold" style={{ color: '#2973ff', fontSize: 'var(--text-body)' }}>
                                     {tokenYields[market.collateralSymbol]
                                       ? `${tokenYields[market.collateralSymbol].toFixed(2)}%`
                                       : '--'}
@@ -761,7 +777,7 @@ export default function MarketsTable({ onStatsReady }: MarketsTableProps) {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  router.push(`/markets/${market.uniqueKey}`);
+                                  router.push(`/markets/${market.chainSlug}/${market.uniqueKey}`);
                                 }}
                                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-sans font-bold transition-all hover:brightness-110"
                                 style={{
@@ -813,11 +829,11 @@ export default function MarketsTable({ onStatsReady }: MarketsTableProps) {
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.04, duration: 0.3 }}
-                    onClick={() => router.push(`/markets/${market.uniqueKey}`)}
-                    className={`group cursor-pointer rounded-2xl p-5 transition-all duration-300 relative overflow-hidden ${isFeatured ? 'card-border-glow' : ''}`}
+                    onClick={() => router.push(`/markets/${market.chainSlug}/${market.uniqueKey}`)}
+                    className="group cursor-pointer rounded-2xl p-5 transition-all duration-300 relative overflow-hidden"
                     style={{
-                      background: 'rgba(10, 15, 31, 0.6)',
-                      border: isFeatured ? undefined : '1px solid var(--border)',
+                      background: '#151516',
+                      border: isFeatured ? '1px solid rgba(41,115,255,0.3)' : '1px solid var(--border)',
                     }}
                     whileHover={{ y: -2, scale: 1.01 }}
                   >
@@ -831,7 +847,7 @@ export default function MarketsTable({ onStatsReady }: MarketsTableProps) {
                     <div className="flex items-center gap-3 mb-4">
                       <div className="relative flex items-center shrink-0">
                         <TokenIcon symbol={market.collateralSymbol} size={40} />
-                        <div className="-ml-3 border-2 rounded-full" style={{ borderColor: 'rgba(10, 15, 31, 0.9)' }}>
+                        <div className="-ml-3 border-2 rounded-full" style={{ borderColor: '#151516' }}>
                           <TokenIcon symbol={market.loanSymbol} size={28} />
                         </div>
                       </div>
@@ -863,9 +879,9 @@ export default function MarketsTable({ onStatsReady }: MarketsTableProps) {
                               className="font-sans font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                               style={{
                                 fontSize: '7px',
-                                background: 'rgba(0,255,209,0.1)',
+                                background: 'rgba(41,115,255,0.1)',
                                 color: 'var(--accent-primary)',
-                                border: '1px solid rgba(0,255,209,0.2)',
+                                border: '1px solid rgba(41,115,255,0.2)',
                               }}
                             >
                               Live

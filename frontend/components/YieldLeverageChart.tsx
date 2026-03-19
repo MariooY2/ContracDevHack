@@ -112,7 +112,7 @@ export default function YieldLeverageChart({ reserveInfo, leverage, maxLeverage,
       transition={{ duration: 0.4, delay: 0.1 }}
       className="card-glow p-6"
     >
-      <h2 className="text-base font-black gradient-text tracking-tight mb-4">Yield vs Leverage</h2>
+      <h2 className="text-base font-black tracking-tight mb-4" style={{ color: 'var(--text-primary)' }}>Yield vs Leverage</h2>
 
       <div className="glass-inner p-4">
         <svg
@@ -126,16 +126,16 @@ export default function YieldLeverageChart({ reserveInfo, leverage, maxLeverage,
         >
           <defs>
             <linearGradient id="yieldGreenGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#00FFD1" stopOpacity="0.25" />
-              <stop offset="100%" stopColor="#00FFD1" stopOpacity="0.02" />
+              <stop offset="0%" stopColor="#2973ff" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#2973ff" stopOpacity="0.02" />
             </linearGradient>
             <linearGradient id="yieldRedGrad" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor="#FF3366" stopOpacity="0.25" />
-              <stop offset="100%" stopColor="#FF3366" stopOpacity="0.02" />
+              <stop offset="0%" stopColor="#ef4444" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#ef4444" stopOpacity="0.02" />
             </linearGradient>
             <linearGradient id="yieldLine" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#00FFD1" />
-              <stop offset="100%" stopColor={apyAtMax >= 0 ? '#00C2FF' : '#FF3366'} />
+              <stop offset="0%" stopColor="#2973ff" />
+              <stop offset="100%" stopColor={apyAtMax >= 0 ? '#2973ff' : '#ef4444'} />
             </linearGradient>
           </defs>
 
@@ -173,9 +173,9 @@ export default function YieldLeverageChart({ reserveInfo, leverage, maxLeverage,
             <>
               <line
                 x1={toX(breakeven)} y1={PAD.top} x2={toX(breakeven)} y2={PAD.top + chartH}
-                stroke="#FF3366" strokeWidth="1.5" strokeDasharray="6 4" opacity="0.7"
+                stroke="#ef4444" strokeWidth="1.5" strokeDasharray="6 4" opacity="0.7"
               />
-              <text x={toX(breakeven)} y={PAD.top - 4} textAnchor="middle" fill="#FF3366" fontSize="9" fontWeight="bold">
+              <text x={toX(breakeven)} y={PAD.top - 4} textAnchor="middle" fill="#ef4444" fontSize="9" fontWeight="bold">
                 Breakeven {breakeven.toFixed(1)}×
               </text>
             </>
@@ -186,14 +186,14 @@ export default function YieldLeverageChart({ reserveInfo, leverage, maxLeverage,
             <>
               <line
                 x1={toX(leverage)} y1={PAD.top} x2={toX(leverage)} y2={PAD.top + chartH}
-                stroke="#00C2FF" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.6"
+                stroke="#2973ff" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.6"
               />
-              <circle cx={toX(leverage)} cy={toY(currentNetAPY)} r="6" fill="#00C2FF" stroke="#05080F" strokeWidth="2" />
+              <circle cx={toX(leverage)} cy={toY(currentNetAPY)} r="6" fill="#2973ff" stroke="#05080F" strokeWidth="2" />
               <text
                 x={toX(leverage) + (leverage > maxLeverage * 0.8 ? -8 : 8)}
                 y={toY(currentNetAPY) - 10}
                 textAnchor={leverage > maxLeverage * 0.8 ? 'end' : 'start'}
-                fill="#00C2FF" fontSize="11" fontWeight="bold"
+                fill="#2973ff" fontSize="11" fontWeight="bold"
               >
                 {currentNetAPY.toFixed(1)}%
               </text>
@@ -213,12 +213,12 @@ export default function YieldLeverageChart({ reserveInfo, leverage, maxLeverage,
               <line
                 x1={PAD.left} y1={toY(hoverAPY)}
                 x2={toX(hoverLev)} y2={toY(hoverAPY)}
-                stroke="rgba(0,255,209,0.25)" strokeWidth="1" strokeDasharray="3 3"
+                stroke="rgba(41,115,255,0.25)" strokeWidth="1" strokeDasharray="3 3"
               />
               {/* Dot on curve */}
               <circle
                 cx={toX(hoverLev)} cy={toY(hoverAPY)}
-                r="5" fill={hoverAPY >= 0 ? '#00FFD1' : '#FF3366'} stroke="#030711" strokeWidth="2"
+                r="5" fill={hoverAPY >= 0 ? '#2973ff' : '#ef4444'} stroke="#030711" strokeWidth="2"
               />
               {/* Tooltip */}
               {(() => {
@@ -236,9 +236,9 @@ export default function YieldLeverageChart({ reserveInfo, leverage, maxLeverage,
                       x={tooltipX} y={tooltipY}
                       width={tooltipW} height={tooltipH}
                       rx="8" ry="8"
-                      fill="rgba(10,15,31,0.92)" stroke="rgba(0,255,209,0.25)" strokeWidth="1"
+                      fill="rgba(9,9,9,0.92)" stroke="rgba(41,115,255,0.25)" strokeWidth="1"
                     />
-                    <text x={tooltipX + 10} y={tooltipY + 15} fill="#00FFD1" fontSize="10" fontWeight="bold">
+                    <text x={tooltipX + 10} y={tooltipY + 15} fill="#2973ff" fontSize="10" fontWeight="bold">
                       {hoverLev.toFixed(1)}× Leverage
                     </text>
                     <text x={tooltipX + 10} y={tooltipY + 30} fill="#E8EDF5" fontSize="10" fontWeight="bold">

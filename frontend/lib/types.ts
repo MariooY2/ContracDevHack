@@ -23,6 +23,7 @@ export interface UserPosition {
   debt: bigint;
   leverage: number;
   healthFactor: number;
+  chainSlug?: string;
 }
 
 // ── Multi-chain types ──────────────────────────────────────

@@ -200,12 +200,12 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
   const maxSafeLeverage = Math.min(calculatedMaxLeverage, contractMaxLeverage);
 
   const allLeverageLevels = [
-    { label: '2x',  leverage: 2,  color: '#00FFD1' },
+    { label: '2x',  leverage: 2,  color: '#2973ff' },
     { label: '4x',  leverage: 4,  color: '#84cc16' },
     { label: '6x',  leverage: 6,  color: '#f59e0b' },
     { label: '8x',  leverage: 8,  color: '#f97316' },
     { label: '10x', leverage: 10, color: '#ef4444' },
-    { label: '15x', leverage: 15, color: '#FF3366' },
+    { label: '15x', leverage: 15, color: '#ef4444' },
   ];
   const leverageLevels = allLeverageLevels.filter(l => l.leverage <= contractMaxLeverage);
 
@@ -317,7 +317,7 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
       {/* Header */}
       <div className="flex items-start justify-between mb-2 gap-3">
         <div>
-          <h2 className="text-base font-black gradient-text tracking-tight">Risk Analysis</h2>
+          <h2 className="text-base font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>Risk Analysis</h2>
           <p className="text-[10px] text-(--text-muted) font-mono mt-0.5">
             {riskLevel.text}. Oracle {oracle?.pair || collateralSymbol} rate across {oraclePoints.length} rounds.
           </p>
@@ -334,8 +334,8 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
             <div
               className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-mono font-bold"
               style={{
-                background: fromCache ? 'rgba(245,158,11,0.1)' : 'rgba(0,255,209,0.1)',
-                border: `1px solid ${fromCache ? 'rgba(245,158,11,0.2)' : 'rgba(0,255,209,0.2)'}`,
+                background: fromCache ? 'rgba(245,158,11,0.1)' : 'rgba(57,166,153,0.1)',
+                border: `1px solid ${fromCache ? 'rgba(245,158,11,0.2)' : 'rgba(57,166,153,0.2)'}`,
                 color: fromCache ? 'var(--accent-warning)' : 'var(--accent-primary)',
               }}
             >
@@ -368,7 +368,7 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
       {/* Info box */}
       <div
         className="rounded-xl p-3 mb-4 flex items-start gap-2.5"
-        style={{ background: 'rgba(0,194,255,0.05)', border: '1px solid rgba(0,194,255,0.15)' }}
+        style={{ background: 'rgba(41,115,255,0.05)', border: '1px solid rgba(41,115,255,0.15)' }}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0 mt-0.5" style={{ color: 'var(--accent-info)' }}>
           <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
@@ -388,8 +388,8 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
               onClick={() => setTimeRange(r.label)}
               className="px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold transition-all"
               style={{
-                background: timeRange === r.label ? 'rgba(0,255,209,0.15)' : 'rgba(255,255,255,0.03)',
-                border: `1px solid ${timeRange === r.label ? 'rgba(0,255,209,0.3)' : 'var(--border)'}`,
+                background: timeRange === r.label ? 'rgba(41,115,255,0.15)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${timeRange === r.label ? 'rgba(41,115,255,0.3)' : 'var(--border)'}`,
                 color: timeRange === r.label ? 'var(--accent-primary)' : 'var(--text-muted)',
               }}
             >
@@ -488,7 +488,7 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
               {/* Worst drawdown marker */}
               {worstDipIdx > 0 && maxHistoricalDepeg > 0 && (
                 <>
-                  <circle cx={toX(worstDipIdx)} cy={toY(oraclePoints[worstDipIdx].rate)} r="5" fill="#FF3366" stroke="#05080F" strokeWidth="2" />
+                  <circle cx={toX(worstDipIdx)} cy={toY(oraclePoints[worstDipIdx].rate)} r="5" fill="#ef4444" stroke="#05080F" strokeWidth="2" />
                   <text x={toX(worstDipIdx)} y={toY(oraclePoints[worstDipIdx].rate) - 10} textAnchor="middle" fill="#fca5a5" fontSize="9" fontWeight="bold">
                     Max drawdown: -{maxHistoricalDepeg.toFixed(4)}%
                   </text>
@@ -498,8 +498,8 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
               {/* Current rate marker */}
               {oraclePoints.length > 0 && (
                 <>
-                  <circle cx={toX(oraclePoints.length - 1)} cy={toY(oraclePoints[oraclePoints.length - 1].rate)} r="4" fill="#00FFD1" stroke="#05080F" strokeWidth="2" />
-                  <text x={toX(oraclePoints.length - 1) - 5} y={toY(oraclePoints[oraclePoints.length - 1].rate) - 10} textAnchor="end" fill="#00FFD1" fontSize="9" fontWeight="bold">
+                  <circle cx={toX(oraclePoints.length - 1)} cy={toY(oraclePoints[oraclePoints.length - 1].rate)} r="4" fill="#2973ff" stroke="#05080F" strokeWidth="2" />
+                  <text x={toX(oraclePoints.length - 1) - 5} y={toY(oraclePoints[oraclePoints.length - 1].rate) - 10} textAnchor="end" fill="#2973ff" fontSize="9" fontWeight="bold">
                     {oraclePoints[oraclePoints.length - 1].rate.toFixed(4)}
                   </text>
                 </>
@@ -549,7 +549,7 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
                         <text x={tooltipX + 10} y={tooltipY + 30} fill="#E8EDF5" fontSize="10" fontWeight="bold">
                           Rate: {hoveredPoint.rate.toFixed(5)}
                         </text>
-                        <text x={tooltipX + 10} y={tooltipY + 45} fill={hoveredDepeg > 0 ? '#FF3366' : '#00FFD1'} fontSize="9">
+                        <text x={tooltipX + 10} y={tooltipY + 45} fill={hoveredDepeg > 0 ? '#ef4444' : '#2973ff'} fontSize="9">
                           {hoveredDepeg > 0 ? `${hoveredDepeg.toFixed(4)}% below current` : 'At or above current'}
                         </text>
                       </g>
@@ -581,8 +581,8 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
                     <span className="text-[10px] font-mono" style={{ color: '#a78bfa' }}>Purple line = Oracle exchange rate over time</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#00FFD1]" />
-                    <span className="text-[10px] font-mono" style={{ color: '#00FFD1' }}>Green dot = Current rate ({currentRate.toFixed(4)})</span>
+                    <div className="w-2 h-2 rounded-full bg-[#2973ff]" />
+                    <span className="text-[10px] font-mono" style={{ color: '#2973ff' }}>Green dot = Current rate ({currentRate.toFixed(4)})</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-0.5 rounded bg-[#f59e0b]" style={{ borderTop: '1px dashed #f59e0b' }} />
@@ -613,7 +613,7 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
 
           {/* Stats cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-            <div className="glass-inner p-4" style={{ borderColor: 'rgba(0,255,209,0.3)', borderWidth: '1px', borderStyle: 'solid' }}>
+            <div className="glass-inner p-4" style={{ borderColor: 'rgba(41,115,255,0.3)', borderWidth: '1px', borderStyle: 'solid' }}>
               <p className="text-[9px] text-(--text-muted) uppercase tracking-[0.15em] font-mono font-bold mb-2">Current Rate</p>
               <p className="text-2xl font-black font-mono" style={{ color: 'var(--accent-primary)' }}>
                 {currentRate.toFixed(4)}
@@ -623,7 +623,7 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
               </p>
             </div>
 
-            <div className="glass-inner p-4" style={{ borderColor: latestChange >= 0 ? 'rgba(0,255,209,0.3)' : 'rgba(255,51,102,0.3)', borderWidth: '1px', borderStyle: 'solid' }}>
+            <div className="glass-inner p-4" style={{ borderColor: latestChange >= 0 ? 'rgba(41,115,255,0.3)' : 'rgba(239,68,68,0.3)', borderWidth: '1px', borderStyle: 'solid' }}>
               <p className="text-[9px] text-(--text-muted) uppercase tracking-[0.15em] font-mono font-bold mb-2">Latest Round Change</p>
               <p className="text-2xl font-black font-mono" style={{ color: latestChange >= 0 ? 'var(--accent-primary)' : 'var(--accent-secondary)' }}>
                 {latestChange >= 0 ? '+' : ''}{latestChange.toFixed(4)}%

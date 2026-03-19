@@ -25,9 +25,9 @@ interface TransactionStepperProps {
 
 const STATUS_COLORS: Record<TxStepStatus, { bg: string; border: string; text: string; dot: string }> = {
   pending:   { bg: 'rgba(255,255,255,0.03)', border: 'var(--border)', text: 'var(--text-muted)', dot: 'var(--text-muted)' },
-  active:    { bg: 'rgba(0,255,209,0.08)', border: 'rgba(0,255,209,0.3)', text: 'var(--accent-primary)', dot: 'var(--accent-primary)' },
+  active:    { bg: 'rgba(41,115,255,0.08)', border: 'rgba(41,115,255,0.3)', text: 'var(--accent-primary)', dot: 'var(--accent-primary)' },
   completed: { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)', text: '#10B981', dot: '#10B981' },
-  error:     { bg: 'rgba(255,51,102,0.08)', border: 'rgba(255,51,102,0.2)', text: '#FF3366', dot: '#FF3366' },
+  error:     { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)', text: '#ef4444', dot: '#ef4444' },
 };
 
 export default function TransactionStepper({ currentStep, stepStatuses, className = '' }: TransactionStepperProps) {

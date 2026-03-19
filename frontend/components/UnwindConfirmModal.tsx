@@ -96,9 +96,8 @@ export default function UnwindConfirmModal({
                 onClick={onConfirm}
                 className="flex-1 py-3 rounded-xl text-xs font-bold font-mono uppercase tracking-widest transition-all hover:opacity-90"
                 style={{
-                  background: 'linear-gradient(135deg, #FF3366 0%, #FF5555 100%)',
+                  background: '#ef4444',
                   color: '#fff',
-                  boxShadow: '0 4px 20px rgba(255,51,102,0.3)',
                 }}
               >
                 Confirm Close

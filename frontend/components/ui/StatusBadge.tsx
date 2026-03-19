@@ -2,12 +2,12 @@
 
 type StatusType = 'safe' | 'caution' | 'danger' | 'neutral' | 'info';
 
-const STATUS_CONFIG: Record<StatusType, { bg: string; border: string; color: string; dotColor: string; pulse?: string }> = {
-  safe:    { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)', color: '#10B981', dotColor: '#10B981', pulse: 'pulse-safe' },
+const STATUS_CONFIG: Record<StatusType, { bg: string; border: string; color: string; dotColor: string }> = {
+  safe:    { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)', color: '#10B981', dotColor: '#10B981' },
   caution: { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)', color: '#F59E0B', dotColor: '#F59E0B' },
-  danger:  { bg: 'rgba(255,51,102,0.08)', border: 'rgba(255,51,102,0.2)', color: '#FF3366', dotColor: '#FF3366', pulse: 'pulse-danger' },
+  danger:  { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)', color: '#ef4444', dotColor: '#ef4444' },
   neutral: { bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)', dotColor: 'var(--text-muted)' },
-  info:    { bg: 'rgba(0,194,255,0.08)', border: 'rgba(0,194,255,0.2)', color: '#00C2FF', dotColor: '#00C2FF' },
+  info:    { bg: 'rgba(41,115,255,0.08)', border: 'rgba(41,115,255,0.2)', color: '#2973ff', dotColor: '#2973ff' },
 };
 
 interface StatusBadgeProps {
@@ -41,7 +41,7 @@ export default function StatusBadge({
     >
       {showDot && (
         <span
-          className={`w-1.5 h-1.5 rounded-full shrink-0 ${config.pulse || ''}`}
+          className="w-1.5 h-1.5 rounded-full shrink-0"
           style={{ background: config.dotColor }}
         />
       )}

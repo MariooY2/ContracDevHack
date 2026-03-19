@@ -3,7 +3,6 @@ import VoltIcon from './VoltIcon';
 export default function Footer() {
   return (
     <footer className="mt-16 border-t" style={{ borderColor: 'var(--border)' }}>
-      <div className="glow-line" />
       <div className="max-w-[1400px] mx-auto px-6 py-5">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Brand */}

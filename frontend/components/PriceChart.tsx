@@ -120,7 +120,7 @@ export default function PriceChart({ exchangeRate, reserveInfo }: PriceChartProp
       {/* Header */}
       <div className="flex items-start justify-between mb-2 gap-3">
         <div>
-          <h2 className="text-base font-black gradient-text tracking-tight">wstETH: Intrinsic vs Market</h2>
+          <h2 className="text-base font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>wstETH: Intrinsic vs Market</h2>
           <p className="text-[10px] text-[var(--text-muted)] font-mono mt-0.5">
             Intrinsic (wstETH/stETH) vs Market (wstETH/ETH) — DeFiLlama
           </p>
@@ -130,8 +130,8 @@ export default function PriceChart({ exchangeRate, reserveInfo }: PriceChartProp
             <div
               className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-mono font-bold"
               style={{
-                background: fromCache ? 'rgba(245,158,11,0.1)' : 'rgba(0,255,209,0.1)',
-                border: `1px solid ${fromCache ? 'rgba(245,158,11,0.2)' : 'rgba(0,255,209,0.2)'}`,
+                background: fromCache ? 'rgba(245,158,11,0.1)' : 'rgba(41,115,255,0.1)',
+                border: `1px solid ${fromCache ? 'rgba(245,158,11,0.2)' : 'rgba(41,115,255,0.2)'}`,
                 color: fromCache ? 'var(--accent-warning)' : 'var(--accent-primary)',
               }}
             >
@@ -186,11 +186,11 @@ export default function PriceChart({ exchangeRate, reserveInfo }: PriceChartProp
             <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
               <defs>
                 <linearGradient id="intrinsicGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#00C2FF" stopOpacity="0.18" />
-                  <stop offset="100%" stopColor="#00C2FF" stopOpacity="0.01" />
+                  <stop offset="0%" stopColor="#2973ff" stopOpacity="0.18" />
+                  <stop offset="100%" stopColor="#2973ff" stopOpacity="0.01" />
                 </linearGradient>
                 <linearGradient id="intrinsicLine" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#00C2FF" />
+                  <stop offset="0%" stopColor="#2973ff" />
                   <stop offset="100%" stopColor="#8b5cf6" />
                 </linearGradient>
                 <linearGradient id="marketLine" x1="0" y1="0" x2="1" y2="0">
@@ -237,14 +237,14 @@ export default function PriceChart({ exchangeRate, reserveInfo }: PriceChartProp
                     {data[data.length - 1].market.toFixed(4)}
                   </text>
                   <circle cx={toX(0)} cy={toY(data[0].intrinsic)}
-                    r="3" fill="#00C2FF" stroke="#05080F" strokeWidth="2" />
+                    r="3" fill="#2973ff" stroke="#05080F" strokeWidth="2" />
                 </>
               )}
             </svg>
 
             <div className="flex justify-center gap-6 mt-3">
               <div className="flex items-center gap-2">
-                <div className="w-4 h-0.5 rounded" style={{ background: 'linear-gradient(90deg, #00C2FF, #8b5cf6)' }} />
+                <div className="w-4 h-0.5 rounded" style={{ background: 'linear-gradient(90deg, #2973ff, #8b5cf6)' }} />
                 <span className="text-[10px] font-mono text-[var(--text-secondary)]">Intrinsic</span>
               </div>
               <div className="flex items-center gap-2">
@@ -267,7 +267,7 @@ export default function PriceChart({ exchangeRate, reserveInfo }: PriceChartProp
               <p className="text-base font-black font-mono text-[#fbbf24]">
                 {latestPoint ? latestPoint.market.toFixed(4) : '-'}
               </p>
-              <p className="text-[9px] font-mono" style={{ color: premiumPct !== null ? (premiumPct >= 0 ? '#00FFD1' : '#FF3366') : 'var(--text-muted)' }}>
+              <p className="text-[9px] font-mono" style={{ color: premiumPct !== null ? (premiumPct >= 0 ? '#2973ff' : '#ef4444') : 'var(--text-muted)' }}>
                 {premiumPct !== null ? `${premiumPct >= 0 ? '+' : ''}${premiumPct.toFixed(3)}%` : '--'}
               </p>
             </div>

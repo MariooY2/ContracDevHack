@@ -48,7 +48,7 @@ function TokenIcon({ symbol, size = 28 }: { symbol: string; size?: number }) {
 }
 
 function hfColor(hf: number): string {
-  return hf > 1.5 ? '#00FFD1' : hf > 1.1 ? '#F59E0B' : '#FF3366';
+  return hf > 1.5 ? '#2973ff' : hf > 1.1 ? '#F59E0B' : '#ef4444';
 }
 
 function hfLabel(hf: number): string {
@@ -63,6 +63,7 @@ interface MarketInput {
   lltv: number;
   supplyApy: number;
   borrowApy: number;
+  chainSlug?: string;
 }
 
 export default function PositionsPage() {
@@ -108,7 +109,7 @@ export default function PositionsPage() {
         transition={{ duration: 0.4 }}
         className="mb-8"
       >
-        <h1 className="text-2xl font-black gradient-text tracking-tight mb-1">Your Positions</h1>
+        <h1 className="text-2xl font-black tracking-tight mb-1" style={{ color: 'var(--text-primary)' }}>Your Positions</h1>
         <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
           Active leveraged positions across all Morpho Blue markets
         </p>
@@ -239,12 +240,12 @@ function PositionCard({ position: pos, index }: { position: UserPosition; index:
       exit={{ opacity: 0, y: -10 }}
       transition={{ delay: index * 0.05, duration: 0.3 }}
     >
-      <Link href={`/markets/${pos.marketId}`}>
+      <Link href={`/markets/${pos.chainSlug || 'base'}/${pos.marketId}`}>
         <div
           className="card-glow p-5 cursor-pointer transition-all duration-200 group"
           style={{ border: '1px solid var(--border)' }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(0,255,209,0.2)';
+            e.currentTarget.style.borderColor = 'rgba(41,115,255,0.2)';
             e.currentTarget.style.transform = 'translateY(-1px)';
           }}
           onMouseLeave={(e) => {
@@ -270,7 +271,7 @@ function PositionCard({ position: pos, index }: { position: UserPosition; index:
                   style={{ background: `${color}15`, border: `1px solid ${color}30` }}
                 >
                   <div
-                    className={`w-1.5 h-1.5 rounded-full ${pos.healthFactor > 1.5 ? 'pulse-safe' : 'pulse-danger'}`}
+                    className="w-1.5 h-1.5 rounded-full"
                     style={{ background: color }}
                   />
                   <span className="text-[9px] font-bold font-mono tracking-wider" style={{ color }}>
@@ -302,8 +303,8 @@ function PositionCard({ position: pos, index }: { position: UserPosition; index:
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider transition-colors"
                 style={{
                   color: 'var(--accent-primary)',
-                  background: 'rgba(0,255,209,0.06)',
-                  border: '1px solid rgba(0,255,209,0.12)',
+                  background: 'rgba(41,115,255,0.06)',
+                  border: '1px solid rgba(41,115,255,0.12)',
                 }}
               >
                 Manage

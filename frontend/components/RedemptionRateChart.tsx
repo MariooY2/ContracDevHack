@@ -113,7 +113,7 @@ export default function RedemptionRateChart() {
       {/* Header */}
       <div className="flex items-start justify-between mb-2 gap-3">
         <div>
-          <h2 className="text-base font-black gradient-text tracking-tight">Oracle Redemption Rate</h2>
+          <h2 className="text-base font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>Oracle Redemption Rate</h2>
           <p className="text-[10px] text-(--text-muted) font-mono mt-0.5">
             wstETH/stETH annualized yield derived from oracle rate changes
           </p>
@@ -123,7 +123,7 @@ export default function RedemptionRateChart() {
       {/* Info box */}
       <div
         className="rounded-xl p-3 mb-4 flex items-start gap-2.5"
-        style={{ background: 'rgba(0,194,255,0.05)', border: '1px solid rgba(0,194,255,0.15)' }}
+        style={{ background: 'rgba(41,115,255,0.05)', border: '1px solid rgba(41,115,255,0.15)' }}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0 mt-0.5" style={{ color: 'var(--accent-info)' }}>
           <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
@@ -154,8 +154,8 @@ export default function RedemptionRateChart() {
             <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
               <defs>
                 <linearGradient id="aprGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#00FFD1" stopOpacity="0.2" />
-                  <stop offset="100%" stopColor="#00FFD1" stopOpacity="0.02" />
+                  <stop offset="0%" stopColor="#2973ff" stopOpacity="0.2" />
+                  <stop offset="100%" stopColor="#2973ff" stopOpacity="0.02" />
                 </linearGradient>
               </defs>
 
@@ -190,14 +190,14 @@ export default function RedemptionRateChart() {
 
               {/* Area + line */}
               {areaPath && <path d={areaPath} fill="url(#aprGrad)" />}
-              {linePath && <path d={linePath} fill="none" stroke="#00FFD1" strokeWidth="1.5" />}
+              {linePath && <path d={linePath} fill="none" stroke="#2973ff" strokeWidth="1.5" />}
 
               {/* Current point */}
               {aprPoints.length > 0 && (
-                <circle cx={toX(aprPoints.length - 1)} cy={toY(currentApr)} r="4" fill="#00FFD1" stroke="#05080F" strokeWidth="2" />
+                <circle cx={toX(aprPoints.length - 1)} cy={toY(currentApr)} r="4" fill="#2973ff" stroke="#05080F" strokeWidth="2" />
               )}
 
-              <text x={PAD.left + 5} y={PAD.top + 12} fill="#00FFD1" fontSize="10" fontWeight="600" opacity="0.7">
+              <text x={PAD.left + 5} y={PAD.top + 12} fill="#2973ff" fontSize="10" fontWeight="600" opacity="0.7">
                 Annualized Yield (APR %)
               </text>
             </svg>

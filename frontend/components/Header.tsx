@@ -22,7 +22,7 @@ function NavItem({ href, label, isActive, showIndicator = true, badge }: NavItem
       style={{
         fontSize: 'var(--text-caption)',
         color: isActive ? 'var(--accent-primary)' : 'var(--text-muted)',
-        background: isActive ? 'rgba(0,255,209,0.06)' : 'transparent',
+        background: isActive ? 'rgba(41,115,255,0.08)' : 'transparent',
       }}
     >
       {label}
@@ -31,9 +31,9 @@ function NavItem({ href, label, isActive, showIndicator = true, badge }: NavItem
           className="font-mono font-bold px-1.5 py-0.5 rounded"
           style={{
             fontSize: '7px',
-            background: 'rgba(167,139,250,0.1)',
-            color: '#A78BFA',
-            border: '1px solid rgba(167,139,250,0.2)',
+            background: 'rgba(41,115,255,0.1)',
+            color: '#2973ff',
+            border: '1px solid rgba(41,115,255,0.2)',
           }}
         >
           {badge}
@@ -57,6 +57,7 @@ export default function Header() {
   const isMarkets = pathname === '/markets' || isMarketDetail;
   const isDashboard = pathname === '/dashboard';
   const isLearn = pathname === '/learn';
+  const isCommunity = pathname.startsWith('/community');
 
   return (
     <>
@@ -64,8 +65,8 @@ export default function Header() {
         className="sticky top-0 z-50 border-b"
         style={{
           borderColor: 'var(--border)',
-          background: 'rgba(3, 7, 17, 0.85)',
-          backdropFilter: 'blur(24px) saturate(1.5)',
+          background: 'rgba(9, 9, 9, 0.85)',
+          backdropFilter: 'blur(24px)',
         }}
       >
         <div className="max-w-[1400px] mx-auto px-6 py-3 flex items-center justify-between gap-4">
@@ -76,7 +77,7 @@ export default function Header() {
                 <VoltIcon />
               </div>
               <div className="hidden sm:block">
-                <h1 className="text-base font-black gradient-text tracking-tight leading-none">VOLT</h1>
+                <h1 className="text-base font-black tracking-tight leading-none" style={{ color: 'var(--text-primary)' }}>VOLT</h1>
                 <p className="font-mono mt-0.5" style={{ color: 'var(--text-muted)', fontSize: '8px', letterSpacing: '0.25em', textTransform: 'uppercase' }}>
                   Protocol
                 </p>
@@ -90,6 +91,7 @@ export default function Header() {
                 <NavItem href="/dashboard" label="Dashboard" isActive={isDashboard} />
               )}
               <NavItem href="/learn" label="Learn" isActive={isLearn} />
+              <NavItem href="/community" label="Community" isActive={isCommunity} />
             </nav>
           </div>
 
@@ -99,9 +101,9 @@ export default function Header() {
               className="inline-flex items-center gap-1 px-3 py-1 rounded-lg font-semibold transition-colors"
               style={{
                 fontSize: '11px',
-                background: 'rgba(0,255,209,0.1)',
+                background: 'rgba(41,115,255,0.1)',
                 color: 'var(--accent-primary)',
-                border: '1px solid rgba(0,255,209,0.2)',
+                border: '1px solid rgba(41,115,255,0.2)',
               }}
             >
               Launch App
@@ -114,7 +116,6 @@ export default function Header() {
           )}
         </div>
       </header>
-      <div className="glow-line" />
     </>
   );
 }

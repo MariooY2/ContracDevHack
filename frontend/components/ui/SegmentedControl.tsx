@@ -46,7 +46,7 @@ export default function SegmentedControl<T extends string>({
       {/* Animated indicator */}
       <motion.div
         className="absolute top-0.5 bottom-0.5 rounded-lg"
-        style={{ background: 'rgba(0,255,209,0.12)', border: '1px solid rgba(0,255,209,0.25)' }}
+        style={{ background: 'rgba(41,115,255,0.12)', border: '1px solid rgba(41,115,255,0.25)' }}
         animate={{ left: indicatorStyle.left, width: indicatorStyle.width }}
         transition={{ type: 'spring', stiffness: 500, damping: 35 }}
       />
