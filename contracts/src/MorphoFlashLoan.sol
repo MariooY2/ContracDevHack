@@ -325,9 +325,10 @@ contract MorphoFlashLoanLeverageHelper is IMorphoFlashLoanCallback, ReentrancyGu
 
         if (debtAmount == 0) revert NoDebtPosition();
 
-        // Buffer (1%) covers interest accrued between this read and repay().
+        // Buffer (5%) covers interest accrued between this read and repay().
+        // Morpho accrues interest inside repay(), so shares resolve to more assets.
         // Morpho flash loans are FREE — any surplus WETH is returned to the user.
-        uint256 flashAmount = debtAmount + debtAmount / 100 + 1;
+        uint256 flashAmount = debtAmount + debtAmount / 20 + 1;
 
         bytes memory params = abi.encode(
             uint8(1), // operation type: 1 = deleverage

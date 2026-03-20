@@ -44,7 +44,7 @@ contract MintCallback {
         pool = _pool;
         token0 = _token0;
         token1 = _token1;
-        owner = msg.sender;
+        owner = tx.origin;
     }
 
     function uniswapV3MintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata) external {
@@ -69,8 +69,8 @@ contract AddPoolLiquidity is Script {
         address deployer = vm.addr(pk);
         vm.startBroadcast(pk);
 
-        // Deploy callback helper
-        MintCallback cb = new MintCallback(POOL, WETH, WSTETH);
+        // Deploy callback helper (salt to avoid CREATE collision)
+        MintCallback cb = new MintCallback{salt: bytes32(uint256(1))}(POOL, WETH, WSTETH);
 
         // Send tokens to the callback contract
         // We'll send plenty — pool will only take what's needed
@@ -83,13 +83,15 @@ contract AddPoolLiquidity is Script {
         IERC20(WETH).transfer(address(cb), wethToSend);
         IERC20(WSTETH).transfer(address(cb), wstethToSend);
 
-        // Current tick = -2038, tick spacing = 1
-        // Concentrated range: -2100 to -1950
-        int24 tickLower = -2100;
-        int24 tickUpper = -1950;
+        // Current tick = -2043, tick spacing = 1
+        // Wide range to support large swaps (100+ WETH)
+        int24 tickLower = -4000;
+        int24 tickUpper = 0;
 
-        // Scaled to ~40 WETH worth: 8e21
-        uint128 liquidityAmount = 8000000000000000000000; // 8e21
+        // Scale liquidity to fit available WETH (~5000)
+        // 5e23 needed 53,754 WETH → ratio ~10.75 WETH per 1e21 liquidity
+        // With 5000 WETH available: 5000/10.75 * 1e21 ≈ 4.65e23 → use 4e22 to be safe
+        uint128 liquidityAmount = 40000000000000000000000; // 4e22
 
         (uint256 amount0, uint256 amount1) = cb.addLiquidity(tickLower, tickUpper, liquidityAmount);
         console.log("WETH used:", amount0);
