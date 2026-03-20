@@ -1,79 +1,78 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useAccount, useWalletClient } from 'wagmi';
-import { parseEther, formatEther, maxUint256, createPublicClient, http, encodeFunctionData } from 'viem';
+import { parseEther, formatEther, maxUint256, createPublicClient, http } from 'viem';
+import type { Address, PublicClient } from 'viem';
+import { mainnet, base, arbitrum, polygon } from 'viem/chains';
 import {
   MORPHO_ADDRESSES, MORPHO_LEVERAGE_HELPER_ABI, MORPHO_ABI, ERC20_ABI,
   MORPHO_MARKET_ID, DEFAULT_MARKET_PARAMS, LIFI_DIAMOND,
+  MORPHO_BLUE_BY_CHAIN,
 } from '@/lib/leverageContract';
+import type { MarketParams, MarketConfig } from '@/lib/leverageContract';
 import { baseMainnet } from '@/lib/wagmi';
 import { BASE_RPC_URL } from '@/lib/types';
 import { getMorphoAPY } from '@/lib/morphoApi';
+
+// Chain config for multi-chain public clients (Alchemy where available, public fallback)
+const CHAIN_RPC: Record<number, { chain: any; rpc: string }> = {
+  1:     { chain: mainnet,  rpc: process.env.NEXT_PUBLIC_ETHEREUM_RPC_URL || 'https://eth.llamarpc.com' },
+  8453:  { chain: base,     rpc: BASE_RPC_URL || 'https://mainnet.base.org' },
+  42161: { chain: arbitrum, rpc: process.env.NEXT_PUBLIC_ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc' },
+  137:   { chain: polygon,  rpc: process.env.NEXT_PUBLIC_POLYGON_RPC_URL || 'https://polygon-rpc.com' },
+};
 
 export function useLeverageContract() {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
 
-  const publicClient = useMemo(() => {
-    return createPublicClient({
-      chain: baseMainnet,
-      transport: http(BASE_RPC_URL, { batch: false, retryCount: 3 }),
-    });
+  // Cache public clients per chain
+  const clientCache = useRef<Map<number, PublicClient>>(new Map());
+
+  const getClientForChain = useCallback((chainId: number): PublicClient => {
+    const cached = clientCache.current.get(chainId);
+    if (cached) return cached;
+    const config = CHAIN_RPC[chainId];
+    if (!config) return getClientForChain(8453); // fallback to Base
+    const client = createPublicClient({
+      chain: config.chain,
+      transport: http(config.rpc, { batch: false, retryCount: 3 }),
+    }) as PublicClient;
+    clientCache.current.set(chainId, client);
+    return client;
   }, []);
 
-  // Read user's wstETH wallet balance
-  const getWstethBalance = useCallback(async () => {
-    if (!publicClient || !address) return 0n;
+  // Default Base client (backwards compat)
+  const publicClient = useMemo(() => getClientForChain(8453), [getClientForChain]);
+
+  // Read user's collateral token balance (defaults to wstETH on Base)
+  const getCollateralBalance = useCallback(async (collateralToken?: Address, chainId?: number) => {
+    if (!address) return 0n;
+    const client = chainId ? getClientForChain(chainId) : publicClient;
+    const token = collateralToken || MORPHO_ADDRESSES.WSTETH;
     try {
-      return await publicClient.readContract({
-        address: MORPHO_ADDRESSES.WSTETH,
+      return await client.readContract({
+        address: token,
         abi: ERC20_ABI,
         functionName: 'balanceOf',
         args: [address],
       });
     } catch (error) {
-      console.error('Error fetching wstETH balance:', error);
+      console.error('Error fetching collateral balance:', error);
       return 0n;
     }
-  }, [publicClient, address]);
+  }, [publicClient, address, getClientForChain]);
 
-  // Read position directly from Morpho Blue (works even before helper is deployed)
-  const _readPosition = useCallback(async () => {
-    if (!publicClient || !address) return { collateral: 0n, debt: 0n };
-    try {
-      const position = await publicClient.readContract({
-        address: MORPHO_ADDRESSES.MORPHO_BLUE,
-        abi: MORPHO_ABI,
-        functionName: 'position',
-        args: [MORPHO_MARKET_ID as `0x${string}`, address],
-      });
-      const borrowShares = position[1];
-      const collateral = BigInt(position[2]);
-      let debt = 0n;
-      if (borrowShares > 0n) {
-        const marketData = await publicClient.readContract({
-          address: MORPHO_ADDRESSES.MORPHO_BLUE,
-          abi: MORPHO_ABI,
-          functionName: 'market',
-          args: [MORPHO_MARKET_ID as `0x${string}`],
-        });
-        const totalBorrowAssets = BigInt(marketData[2]);
-        const totalBorrowShares = BigInt(marketData[3]);
-        if (totalBorrowShares > 0n) {
-          debt = (BigInt(borrowShares) * totalBorrowAssets) / totalBorrowShares;
-        }
-      }
-      return { collateral, debt };
-    } catch {
-      return { collateral: 0n, debt: 0n };
-    }
-  }, [publicClient, address]);
+  // Backwards-compat alias
+  const getWstethBalance = useCallback(() => getCollateralBalance(), [getCollateralBalance]);
 
-  // Read position for ANY market by ID (parameterized version)
-  const readPositionForMarket = useCallback(async (marketId: string) => {
-    if (!publicClient || !address) return { collateral: 0n, debt: 0n };
+  // Read position for ANY market by ID on ANY chain
+  const readPositionForMarket = useCallback(async (marketId: string, chainId?: number) => {
+    if (!address) return { collateral: 0n, debt: 0n };
+    const client = chainId ? getClientForChain(chainId) : publicClient;
+    const morpho = (chainId ? MORPHO_BLUE_BY_CHAIN[chainId] : null) || MORPHO_ADDRESSES.MORPHO_BLUE;
     try {
-      const position = await publicClient.readContract({
-        address: MORPHO_ADDRESSES.MORPHO_BLUE,
+      const position = await client.readContract({
+        address: morpho,
         abi: MORPHO_ABI,
         functionName: 'position',
         args: [marketId as `0x${string}`, address],
@@ -82,8 +81,8 @@ export function useLeverageContract() {
       const collateral = BigInt(position[2]);
       let debt = 0n;
       if (borrowShares > 0n) {
-        const marketData = await publicClient.readContract({
-          address: MORPHO_ADDRESSES.MORPHO_BLUE,
+        const marketData = await client.readContract({
+          address: morpho,
           abi: MORPHO_ABI,
           functionName: 'market',
           args: [marketId as `0x${string}`],
@@ -98,27 +97,31 @@ export function useLeverageContract() {
     } catch {
       return { collateral: 0n, debt: 0n };
     }
-  }, [publicClient, address]);
+  }, [publicClient, address, getClientForChain]);
 
-  // Read user's collateral balance
+  // Read position from default market (backwards compat)
+  const _readPosition = useCallback(async () => {
+    return readPositionForMarket(MORPHO_MARKET_ID);
+  }, [readPositionForMarket]);
+
   const getATokenBalance = useCallback(async () => {
     const { collateral } = await _readPosition();
     return collateral;
   }, [_readPosition]);
 
-  // Read user's debt balance
   const getDebtBalance = useCallback(async () => {
     const { debt } = await _readPosition();
     return debt;
   }, [_readPosition]);
 
-  // Read user's full position
-  const getUserPosition = useCallback(async () => {
+  // Read user's full position — accepts optional marketId + lltv
+  const getUserPosition = useCallback(async (marketId?: string, lltv?: number) => {
     if (!publicClient || !address) return null;
-    const { collateral, debt } = await _readPosition();
-    const lltv = Number(DEFAULT_MARKET_PARAMS.lltv) / 1e18;
+    const id = marketId || MORPHO_MARKET_ID;
+    const effectiveLltv = lltv ?? Number(DEFAULT_MARKET_PARAMS.lltv) / 1e18;
+    const { collateral, debt } = await readPositionForMarket(id);
     const hf = debt > 0n
-      ? (Number(formatEther(collateral)) * lltv) / Number(formatEther(debt))
+      ? (Number(formatEther(collateral)) * effectiveLltv) / Number(formatEther(debt))
       : 999;
     return {
       totalCollateralBase: collateral,
@@ -128,7 +131,7 @@ export function useLeverageContract() {
       ltv: 0,
       healthFactor: hf,
     };
-  }, [publicClient, address, _readPosition]);
+  }, [publicClient, address, readPositionForMarket]);
 
   // Fetch Lido staking APR
   const getLidoStakingAPR = async (): Promise<number> => {
@@ -138,28 +141,30 @@ export function useLeverageContract() {
     return Math.round(data.data.smaApr * 1000) / 1000;
   };
 
-  // Get reserve info from Morpho market
-  const getReserveInfo = useCallback(async () => {
-    if (!publicClient) return null;
+  // Get reserve info — accepts optional marketId
+  const getReserveInfo = useCallback(async (marketId?: string, chainId?: number) => {
+    const client = chainId ? getClientForChain(chainId) : publicClient;
+    const morpho = (chainId ? MORPHO_BLUE_BY_CHAIN[chainId] : null) || MORPHO_ADDRESSES.MORPHO_BLUE;
+    const id = marketId || MORPHO_MARKET_ID;
     try {
       const [marketParams, stakingYield, morphoAPY] = await Promise.all([
-        publicClient.readContract({
-          address: MORPHO_ADDRESSES.MORPHO_BLUE,
+        client.readContract({
+          address: morpho,
           abi: MORPHO_ABI,
           functionName: 'idToMarketParams',
-          args: [MORPHO_MARKET_ID],
+          args: [id as `0x${string}`],
         }),
         getLidoStakingAPR(),
-        getMorphoAPY(MORPHO_MARKET_ID),
+        getMorphoAPY(id),
       ]);
 
       const lltvRaw = marketParams.lltv;
-      const lltv = Number(lltvRaw) / 1e16;
-      const maxLeverage = lltv > 0 ? 100 / (100 - lltv) : 1;
+      const lltvPct = Number(lltvRaw) / 1e16;
+      const maxLeverage = lltvPct > 0 ? 100 / (100 - lltvPct) : 1;
 
       return {
-        ltv: lltv,
-        liquidationThreshold: lltv,
+        ltv: lltvPct,
+        liquidationThreshold: lltvPct,
         maxLeverage,
         supplyAPY: morphoAPY.supplyAPY,
         borrowAPY: morphoAPY.borrowAPY,
@@ -177,7 +182,7 @@ export function useLeverageContract() {
         stakingYield,
       };
     }
-  }, [publicClient]);
+  }, [publicClient, getClientForChain]);
 
   // Get wstETH/WETH exchange rate from wstETH.stEthPerToken()
   const getExchangeRate = useCallback(async () => {
@@ -211,8 +216,12 @@ export function useLeverageContract() {
     };
   }, [getExchangeRate]);
 
-  // Simulate leverage (compute flash loan amount + expected output)
-  const simulateLeverage = useCallback(async (targetLeverage: number, userDeposit: number) => {
+  // Simulate leverage — accepts optional market params for LLTV
+  const simulateLeverage = useCallback(async (
+    targetLeverage: number,
+    userDeposit: number,
+    marketParams?: MarketParams,
+  ) => {
     const rate = await getExchangeRate();
     const additionalMultiplier = targetLeverage - 1;
     const flashWethAmount = userDeposit * rate * additionalMultiplier;
@@ -220,7 +229,9 @@ export function useLeverageContract() {
     const totalCollateral = userDeposit + collateralFromSwap;
     const totalDebt = flashWethAmount;
 
-    const lltv = Number(DEFAULT_MARKET_PARAMS.lltv) / 1e18;
+    const lltv = marketParams
+      ? Number(marketParams.lltv) / 1e18
+      : Number(DEFAULT_MARKET_PARAMS.lltv) / 1e18;
     const hf = totalDebt > 0
       ? (totalCollateral * rate * lltv) / totalDebt
       : 999;
@@ -233,15 +244,26 @@ export function useLeverageContract() {
     };
   }, [getExchangeRate]);
 
-  // Get max safe leverage (from LLTV)
-  const getMaxSafeLeverage = useCallback(async () => {
-    const lltv = Number(DEFAULT_MARKET_PARAMS.lltv) / 1e18;
-    return 1 / (1 - lltv); // ~18.18 for 94.5% LLTV
+  // Get max safe leverage — accepts optional market params for LLTV
+  const getMaxSafeLeverage = useCallback(async (marketParams?: MarketParams) => {
+    const lltv = marketParams
+      ? Number(marketParams.lltv) / 1e18
+      : Number(DEFAULT_MARKET_PARAMS.lltv) / 1e18;
+    return 1 / (1 - lltv);
   }, []);
 
-  // Execute leverage via LiFi swap
-  const executeLeverage = async (targetLeverage: number, userDeposit: number, slippageBps: number = 50) => {
+  // Execute leverage via LiFi swap — accepts optional MarketConfig
+  const executeLeverage = async (
+    targetLeverage: number,
+    userDeposit: number,
+    slippageBps: number = 50,
+    config?: MarketConfig,
+  ) => {
     if (!walletClient || !address || !publicClient) throw new Error('Wallet not connected');
+
+    const mp = config?.marketParams || DEFAULT_MARKET_PARAMS;
+    const collateralToken = mp.collateralToken;
+    const loanToken = mp.loanToken;
 
     const depositWei = parseEther(userDeposit.toString());
     const rate = await getExchangeRate();
@@ -250,23 +272,23 @@ export function useLeverageContract() {
 
     // Pre-flight: check balance
     const balance = await publicClient.readContract({
-      address: MORPHO_ADDRESSES.WSTETH,
+      address: collateralToken,
       abi: ERC20_ABI,
       functionName: 'balanceOf',
       args: [address],
     });
     if (balance < depositWei) {
-      throw new Error(`Insufficient wstETH balance. You have ${formatEther(balance)} wstETH but need ${formatEther(depositWei)} wstETH`);
+      throw new Error(`Insufficient collateral balance. You have ${formatEther(balance)} but need ${formatEther(depositWei)}`);
     }
 
-    // Get LiFi swap quote: WETH → wstETH
+    // Get LiFi swap quote: loanToken → collateralToken
     const slippageDecimal = slippageBps / 10000;
     const lifiQuoteResponse = await fetch(
       `https://li.quest/v1/quote?` + new URLSearchParams({
         fromChain: '8453',
         toChain: '8453',
-        fromToken: MORPHO_ADDRESSES.WETH,
-        toToken: MORPHO_ADDRESSES.WSTETH,
+        fromToken: loanToken,
+        toToken: collateralToken,
         fromAmount: flashLoanAmount.toString(),
         fromAddress: MORPHO_ADDRESSES.LEVERAGE_HELPER === '0x0000000000000000000000000000000000000000' ? address : MORPHO_ADDRESSES.LEVERAGE_HELPER,
         slippage: slippageDecimal.toString(),
@@ -283,18 +305,18 @@ export function useLeverageContract() {
     const swapCalldata = lifiQuote.transactionRequest.data as `0x${string}`;
     const minCollateralFromSwap = BigInt(lifiQuote.estimate.toAmountMin);
 
-    console.log('LiFi route:', lifiQuote.tool, '| min output:', formatEther(minCollateralFromSwap), 'wstETH');
+    console.log('LiFi route:', lifiQuote.tool, '| min output:', formatEther(minCollateralFromSwap), 'collateral');
 
-    // Step 1: Approve wstETH to helper
+    // Step 1: Approve collateral to helper
     const allowance = await publicClient.readContract({
-      address: MORPHO_ADDRESSES.WSTETH,
+      address: collateralToken,
       abi: ERC20_ABI,
       functionName: 'allowance',
       args: [address, MORPHO_ADDRESSES.LEVERAGE_HELPER],
     });
     if (allowance < depositWei) {
       const hash = await walletClient.writeContract({
-        address: MORPHO_ADDRESSES.WSTETH,
+        address: collateralToken,
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [MORPHO_ADDRESSES.LEVERAGE_HELPER, maxUint256],
@@ -303,7 +325,7 @@ export function useLeverageContract() {
       await publicClient.waitForTransactionReceipt({ hash });
     }
 
-    // Step 2: Morpho authorization — check directly via Morpho.isAuthorized
+    // Step 2: Morpho authorization
     const isAuthorized = await publicClient.readContract({
       address: MORPHO_ADDRESSES.MORPHO_BLUE,
       abi: MORPHO_ABI,
@@ -321,13 +343,13 @@ export function useLeverageContract() {
       await publicClient.waitForTransactionReceipt({ hash });
     }
 
-    // Step 3: Execute leverage with LiFi swap data
+    // Step 3: Execute leverage with market params + LiFi swap data
     const hash = await walletClient.writeContract({
       address: MORPHO_ADDRESSES.LEVERAGE_HELPER,
       abi: MORPHO_LEVERAGE_HELPER_ABI,
       functionName: 'executeLeverage',
       args: [
-        DEFAULT_MARKET_PARAMS,
+        mp,
         depositWei,
         flashLoanAmount,
         minCollateralFromSwap,
@@ -339,16 +361,21 @@ export function useLeverageContract() {
     return await publicClient.waitForTransactionReceipt({ hash, timeout: 60000 });
   };
 
-  // Execute deleverage via LiFi swap
-  const executeDeleverage = async (slippageBps: number = 50) => {
+  // Execute deleverage via LiFi swap — accepts optional MarketConfig
+  const executeDeleverage = async (slippageBps: number = 50, config?: MarketConfig) => {
     if (!walletClient || !address || !publicClient) throw new Error('Wallet not connected');
+
+    const mp = config?.marketParams || DEFAULT_MARKET_PARAMS;
+    const marketId = config?.marketId || MORPHO_MARKET_ID;
+    const collateralToken = mp.collateralToken;
+    const loanToken = mp.loanToken;
 
     // Read position from Morpho
     const position = await publicClient.readContract({
       address: MORPHO_ADDRESSES.MORPHO_BLUE,
       abi: MORPHO_ABI,
       functionName: 'position',
-      args: [MORPHO_MARKET_ID as `0x${string}`, address],
+      args: [marketId as `0x${string}`, address],
     });
     const borrowShares = position[1];
     const collateral = position[2];
@@ -362,7 +389,7 @@ export function useLeverageContract() {
       address: MORPHO_ADDRESSES.MORPHO_BLUE,
       abi: MORPHO_ABI,
       functionName: 'market',
-      args: [MORPHO_MARKET_ID as `0x${string}`],
+      args: [marketId as `0x${string}`],
     });
     const totalBorrowAssets = marketData[2];
     const totalBorrowShares = marketData[3];
@@ -370,14 +397,14 @@ export function useLeverageContract() {
       ? (BigInt(borrowShares) * BigInt(totalBorrowAssets) + BigInt(totalBorrowShares) - 1n) / BigInt(totalBorrowShares)
       : 0n;
 
-    // Get LiFi swap quote: wstETH → WETH (swap collateral to repay debt)
+    // Get LiFi swap quote: collateralToken → loanToken
     const slippageDecimal = slippageBps / 10000;
     const lifiQuoteResponse = await fetch(
       `https://li.quest/v1/quote?` + new URLSearchParams({
         fromChain: '8453',
         toChain: '8453',
-        fromToken: MORPHO_ADDRESSES.WSTETH,
-        toToken: MORPHO_ADDRESSES.WETH,
+        fromToken: collateralToken,
+        toToken: loanToken,
         fromAmount: collateral.toString(),
         fromAddress: MORPHO_ADDRESSES.LEVERAGE_HELPER === '0x0000000000000000000000000000000000000000' ? address : MORPHO_ADDRESSES.LEVERAGE_HELPER,
         slippage: slippageDecimal.toString(),
@@ -394,9 +421,9 @@ export function useLeverageContract() {
     const swapCalldata = lifiQuote.transactionRequest.data as `0x${string}`;
     const minLoanTokenFromSwap = BigInt(lifiQuote.estimate.toAmountMin);
 
-    console.log('LiFi deleverage route:', lifiQuote.tool, '| min output:', formatEther(minLoanTokenFromSwap), 'WETH');
+    console.log('LiFi deleverage route:', lifiQuote.tool, '| min output:', formatEther(minLoanTokenFromSwap), 'loan token');
 
-    // Ensure Morpho authorization — check directly via Morpho.isAuthorized
+    // Ensure Morpho authorization
     const isAuthorized = await publicClient.readContract({
       address: MORPHO_ADDRESSES.MORPHO_BLUE,
       abi: MORPHO_ABI,
@@ -414,13 +441,13 @@ export function useLeverageContract() {
       await publicClient.waitForTransactionReceipt({ hash: authHash });
     }
 
-    // Execute deleverage with LiFi swap data
+    // Execute deleverage with market params + LiFi swap data
     const hash = await walletClient.writeContract({
       address: MORPHO_ADDRESSES.LEVERAGE_HELPER,
       abi: MORPHO_LEVERAGE_HELPER_ABI,
       functionName: 'executeDeleverage',
       args: [
-        DEFAULT_MARKET_PARAMS,
+        mp,
         minLoanTokenFromSwap,
         swapTarget,
         swapCalldata,
@@ -434,6 +461,7 @@ export function useLeverageContract() {
     address,
     isConnected,
     publicClient,
+    getCollateralBalance,
     getWstethBalance,
     getATokenBalance,
     getDebtBalance,

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { formatEther } from 'viem';
+import { formatEther, getAddress } from 'viem';
 import LeveragePanel from '@/components/LeveragePanel';
 import UnwindPanel from '@/components/UnwindPanel';
 import UnwindConfirmModal from '@/components/UnwindConfirmModal';
@@ -20,6 +20,8 @@ import StatusBadge, { healthFactorStatus, healthFactorLabel } from '@/components
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { getOracleForCollateral } from '@/lib/oracleMap';
 import { getOracleDataByAddress } from '@/lib/oracleDataCache';
+import { buildMarketParams } from '@/lib/leverageContract';
+import type { MarketConfig } from '@/lib/leverageContract';
 import type { ReserveInfo } from '@/lib/types';
 
 interface SupplyingVault {
@@ -55,7 +57,9 @@ interface MarketInfo {
   supplyAssetsUsd: number | null;
   oracleType: string | null;
   oracleAddress?: string | null;
+  irmAddress?: string | null;
   oraclePrice?: number | null;
+  lltvRaw?: string;
   chainId?: number;
   chainSlug?: string;
   supplyingVaults?: SupplyingVault[];
@@ -65,6 +69,10 @@ function formatUsd(value: number): string {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
   if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
   return `$${value.toFixed(0)}`;
+}
+
+function checksumAddr(addr: string): string {
+  try { return getAddress(addr); } catch { return addr; }
 }
 
 interface CuratorGroup {
@@ -106,7 +114,10 @@ function CuratorIcon({ group, chain }: { group: CuratorGroup; chain: string }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div
+      <a
+        href={`https://app.morpho.org/${chain}/vault/${group.vaults[0]?.address}`}
+        target="_blank"
+        rel="noopener noreferrer"
         className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-all"
         style={{
           background: 'rgba(255,255,255,0.06)',
@@ -124,7 +135,7 @@ function CuratorIcon({ group, chain }: { group: CuratorGroup; chain: string }) {
             {group.label.charAt(0).toUpperCase()}
           </span>
         )}
-      </div>
+      </a>
 
       {/* Hover tooltip */}
       {hovered && (
@@ -202,8 +213,28 @@ export default function MarketPage() {
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [copiedOracle, setCopiedOracle] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
+  const [copiedIrm, setCopiedIrm] = useState(false);
+  const [copiedCollateral, setCopiedCollateral] = useState(false);
+  const [copiedLoan, setCopiedLoan] = useState(false);
+  const [copiedFeed, setCopiedFeed] = useState(false);
   const [chartTab, setChartTab] = useState<ChartTab>('yield');
   const [vaultAllocations, setVaultAllocations] = useState<VaultAllocation[]>([]);
+
+  // Build dynamic MarketConfig from API data
+  const marketConfig: MarketConfig | null = useMemo(() => {
+    if (!marketInfo?.oracleAddress || !marketInfo?.irmAddress || !marketInfo?.lltvRaw) return null;
+    return {
+      marketId,
+      marketParams: buildMarketParams({
+        loanAddress: marketInfo.loanAddress,
+        collateralAddress: marketInfo.collateralAddress,
+        oracleAddress: marketInfo.oracleAddress,
+        irmAddress: marketInfo.irmAddress,
+        lltvRaw: marketInfo.lltvRaw,
+      }),
+      chainId: marketInfo.chainId || 8453,
+    };
+  }, [marketId, marketInfo]);
 
   const {
     isConnected,
@@ -230,7 +261,7 @@ export default function MarketPage() {
     unwindTxStatus,
     unwindIsError,
     handleUnwindConfirm,
-  } = useDashboardData(marketId);
+  } = useDashboardData(marketId, marketConfig);
 
   const fetchMarketInfo = useCallback(async () => {
     try {
@@ -286,11 +317,13 @@ export default function MarketPage() {
     if (!symbol) return;
     const oracle = getOracleForCollateral(symbol, chain);
     if (!oracle) return;
-    getOracleDataByAddress(oracle.address, false, oracle.chainSlug).then(result => {
-      if (result?.points?.length > 0) {
-        setMarketExchangeRate(result.points[result.points.length - 1].rate);
+    getOracleDataByAddress(oracle.address, true, oracle.chainSlug).then(result => {
+      const latest = result?.points?.[result.points.length - 1];
+      console.log('[oracle] fetched:', result.points.length, 'points, latest rate:', latest?.rate, 'ts:', latest?.timestamp);
+      if (result?.points?.length > 0 && latest) {
+        setMarketExchangeRate(latest.rate);
       }
-    }).catch(() => {});
+    }).catch((err) => { console.warn('[oracle] fetch failed:', err); });
   }, [marketInfo?.collateralSymbol, marketInfo?.chainSlug]);
 
   const mStaking = marketReserveInfo?.stakingYield || 0;
@@ -298,7 +331,13 @@ export default function MarketPage() {
   const mBorrow = marketReserveInfo?.borrowAPY || 0;
   const mLev = debtBalance > 0n ? currentLeverage : 2.0;
   const marketNetAPY = (mStaking + mSupply) * mLev - mBorrow * (mLev - 1);
-  const displayExchangeRate = marketInfo?.oraclePrice ?? marketExchangeRate ?? (exchangeRate > 1.0 ? exchangeRate : null);
+  const displayExchangeRate = marketExchangeRate ?? marketInfo?.oraclePrice ?? (exchangeRate > 1.0 ? exchangeRate : null);
+
+  // Resolve the aggregator address (Chainlink feed) from ORACLE_MAP — this is what the chart uses
+  const mappedOracle = useMemo(() =>
+    marketInfo ? getOracleForCollateral(marketInfo.collateralSymbol, marketInfo.chainSlug) : null,
+    [marketInfo?.collateralSymbol, marketInfo?.chainSlug]
+  );
 
   const hasPosition = debtBalance > 0n;
 
@@ -588,15 +627,57 @@ export default function MarketPage() {
                         {collateralYield.toFixed(2)}%
                       </span>
                     )}
+                    <span className="font-mono flex items-center gap-1" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-micro)' }}>
+                      {checksumAddr(marketInfo.collateralAddress).slice(0, 6)}...{checksumAddr(marketInfo.collateralAddress).slice(-4)}
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(checksumAddr(marketInfo.collateralAddress));
+                          setCopiedCollateral(true);
+                          setTimeout(() => setCopiedCollateral(false), 1500);
+                        }}
+                        className="p-0.5 rounded transition-all hover:bg-white/[0.06]"
+                        title="Copy collateral address"
+                      >
+                        {copiedCollateral ? (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        ) : (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
+                        )}
+                      </button>
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border)' }}>
                   <span className="font-sans" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-caption)' }}>Loan</span>
-                  <span className="font-mono font-bold" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-caption)' }}>{marketInfo.loanSymbol}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-caption)' }}>{marketInfo.loanSymbol}</span>
+                    <span className="font-mono flex items-center gap-1" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-micro)' }}>
+                      {checksumAddr(marketInfo.loanAddress).slice(0, 6)}...{checksumAddr(marketInfo.loanAddress).slice(-4)}
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(checksumAddr(marketInfo.loanAddress));
+                          setCopiedLoan(true);
+                          setTimeout(() => setCopiedLoan(false), 1500);
+                        }}
+                        className="p-0.5 rounded transition-all hover:bg-white/[0.06]"
+                        title="Copy loan address"
+                      >
+                        {copiedLoan ? (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        ) : (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
+                        )}
+                      </button>
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between px-5 py-3.5 md:border-b-0" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border)' }}>
                   <span className="font-sans" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-caption)' }}>Liquidation LTV</span>
                   <span className="font-mono font-bold" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-caption)' }}>{(marketInfo.lltv * 100).toFixed(1)}%</span>
+                </div>
+                <div className="flex items-center justify-between px-5 py-3.5 md:border-b-0" style={{ borderBottom: '1px solid var(--border)' }}>
+                  <span className="font-sans" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-caption)' }}>Max Leverage</span>
+                  <span className="font-mono font-bold" style={{ color: 'var(--accent-primary)', fontSize: 'var(--text-caption)' }}>{maxLev.toFixed(1)}x</span>
                 </div>
               </div>
               {/* Right column */}
@@ -607,7 +688,76 @@ export default function MarketPage() {
                     {marketInfo.collateralSymbol} / {marketInfo.loanSymbol} = {displayExchangeRate !== null ? displayExchangeRate.toFixed(4) : '...'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border)' }}>
+                {mappedOracle && (
+                  <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border)' }}>
+                    <span className="font-sans" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-caption)' }}>Oracle Feed</span>
+                    <span className="font-mono flex items-center gap-1.5" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }}>
+                      {checksumAddr(mappedOracle.address).slice(0, 6)}...{checksumAddr(mappedOracle.address).slice(-4)}
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(checksumAddr(mappedOracle.address));
+                          setCopiedFeed(true);
+                          setTimeout(() => setCopiedFeed(false), 1500);
+                        }}
+                        className="p-0.5 rounded transition-all hover:bg-white/[0.06]"
+                        title="Copy oracle feed address"
+                      >
+                        {copiedFeed ? (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        ) : (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
+                        )}
+                      </button>
+                    </span>
+                  </div>
+                )}
+                {marketInfo.oracleAddress && (
+                  <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border)' }}>
+                    <span className="font-sans" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-caption)' }}>Morpho Oracle</span>
+                    <span className="font-mono flex items-center gap-1.5" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }}>
+                      {checksumAddr(marketInfo.oracleAddress).slice(0, 6)}...{checksumAddr(marketInfo.oracleAddress).slice(-4)}
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(checksumAddr(marketInfo.oracleAddress!));
+                          setCopiedOracle(true);
+                          setTimeout(() => setCopiedOracle(false), 1500);
+                        }}
+                        className="p-0.5 rounded transition-all hover:bg-white/[0.06]"
+                        title="Copy Morpho oracle address"
+                      >
+                        {copiedOracle ? (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        ) : (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
+                        )}
+                      </button>
+                    </span>
+                  </div>
+                )}
+                {marketInfo.irmAddress && (
+                  <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border)' }}>
+                    <span className="font-sans" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-caption)' }}>IRM</span>
+                    <span className="font-mono flex items-center gap-1.5" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }}>
+                      {checksumAddr(marketInfo.irmAddress).slice(0, 6)}...{checksumAddr(marketInfo.irmAddress).slice(-4)}
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(checksumAddr(marketInfo.irmAddress!));
+                          setCopiedIrm(true);
+                          setTimeout(() => setCopiedIrm(false), 1500);
+                        }}
+                        className="p-0.5 rounded transition-all hover:bg-white/[0.06]"
+                        title="Copy IRM address"
+                      >
+                        {copiedIrm ? (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        ) : (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
+                        )}
+                      </button>
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between px-5 py-3.5">
                   <span className="font-sans" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-caption)' }}>Utilization</span>
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-bold" style={{
@@ -626,10 +776,6 @@ export default function MarketPage() {
                       />
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center justify-between px-5 py-3.5">
-                  <span className="font-sans" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-caption)' }}>Max Leverage</span>
-                  <span className="font-mono font-bold" style={{ color: 'var(--accent-primary)', fontSize: 'var(--text-caption)' }}>{maxLev.toFixed(1)}x</span>
                 </div>
               </div>
             </div>
@@ -792,6 +938,7 @@ export default function MarketPage() {
                           onSuccess={refreshData}
                           reserveInfo={marketReserveInfo}
                           exchangeRate={displayExchangeRate ?? 1.0}
+                          marketConfig={marketConfig}
                         />
                       </motion.div>
                     ) : (

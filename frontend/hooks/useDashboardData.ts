@@ -5,18 +5,21 @@ import { formatEther } from 'viem';
 import { useLeverageContract } from './useLeverageContract';
 import { useAppStore } from '@/store/useAppStore';
 import { MORPHO_MARKET_ID } from '@/lib/leverageContract';
+import type { MarketConfig } from '@/lib/leverageContract';
 
 /**
  * Full dashboard data hook — fetches market data + user position + unwind state.
  * Accepts an optional marketId to read position for any market (defaults to MORPHO_MARKET_ID).
+ * Accepts an optional marketConfig for dynamic leverage/deleverage execution.
  */
-export function useDashboardData(marketId?: string) {
+export function useDashboardData(marketId?: string, marketConfig?: MarketConfig | null) {
   const {
     isConnected,
     getUserPosition,
     readPositionForMarket,
     getReserveInfo,
     getExchangeRate,
+    getCollateralBalance,
     getWstethBalance,
     executeDeleverage,
   } = useLeverageContract();
@@ -53,41 +56,53 @@ export function useDashboardData(marketId?: string) {
   const targetMarketId = marketId || MORPHO_MARKET_ID;
   const isDefaultMarket = targetMarketId === MORPHO_MARKET_ID;
 
-  const fnRef = useRef({ getReserveInfo, getExchangeRate, getUserPosition, getWstethBalance, readPositionForMarket });
+  // LLTV from market config (API data) or default
+  const marketLltv = marketConfig
+    ? Number(marketConfig.marketParams.lltv) / 1e18
+    : 0.945;
+
+  const fnRef = useRef({ getReserveInfo, getExchangeRate, getUserPosition, getWstethBalance, getCollateralBalance, readPositionForMarket });
   const connectedRef = useRef(isConnected);
   const marketIdRef = useRef(targetMarketId);
+  const marketConfigRef = useRef(marketConfig);
   useEffect(() => {
-    fnRef.current = { getReserveInfo, getExchangeRate, getUserPosition, getWstethBalance, readPositionForMarket };
-  }, [getReserveInfo, getExchangeRate, getUserPosition, getWstethBalance, readPositionForMarket]);
+    fnRef.current = { getReserveInfo, getExchangeRate, getUserPosition, getWstethBalance, getCollateralBalance, readPositionForMarket };
+  }, [getReserveInfo, getExchangeRate, getUserPosition, getWstethBalance, getCollateralBalance, readPositionForMarket]);
   useEffect(() => { connectedRef.current = isConnected; }, [isConnected]);
   useEffect(() => { marketIdRef.current = targetMarketId; }, [targetMarketId]);
+  useEffect(() => { marketConfigRef.current = marketConfig; }, [marketConfig]);
 
   const refreshData = useCallback(async (showLoading = false) => {
     if (showLoading) startRefresh(connectedRef.current);
     try {
       const fns = fnRef.current;
       const currentMarketId = marketIdRef.current;
+      const currentConfig = marketConfigRef.current;
       const isDefault = currentMarketId === MORPHO_MARKET_ID;
+      const lltv = currentConfig
+        ? Number(currentConfig.marketParams.lltv) / 1e18
+        : 0.945;
 
-      // Market data: use on-chain reserve info for default market, exchange rate always
+      // Market data: fetch reserve info on the correct chain, exchange rate always
+      const chainId = currentConfig?.chainId;
       const [reserve, rate] = await Promise.all([
-        isDefault ? fns.getReserveInfo() : null,
+        fns.getReserveInfo(currentMarketId, chainId),
         fns.getExchangeRate(),
       ]);
       setMarketData({ reserveInfo: reserve ?? null, exchangeRate: rate });
 
       if (connectedRef.current) {
-        // Position: use parameterized reader for any market
+        // Read position and balance on the correct chain
+        const collateralToken = currentConfig?.marketParams.collateralToken;
         const [posData, wBal] = await Promise.all([
-          fns.readPositionForMarket(currentMarketId),
-          fns.getWstethBalance(),
+          fns.readPositionForMarket(currentMarketId, chainId),
+          collateralToken ? fns.getCollateralBalance(collateralToken, chainId) : fns.getWstethBalance(),
         ]);
 
         const collateral = posData.collateral;
         const debt = posData.debt;
-        // Health factor: for LST/ETH pairs, rate >= 1.0; use rate for default, 1.0 for others (conservative)
-        const effectiveRate = isDefault ? rate : 1.0;
-        const lltv = 0.945; // default LLTV for LST/ETH markets
+        // Health factor: use oracle rate and actual LLTV
+        const effectiveRate = rate;
         const hf = debt > 0n
           ? (Number(formatEther(collateral)) * effectiveRate * lltv) / Number(formatEther(debt))
           : 999;
@@ -114,7 +129,8 @@ export function useDashboardData(marketId?: string) {
     setUnwindIsError(false);
     setUnwindTxStatus('Executing flash loan unwind...');
     try {
-      await executeDeleverage();
+      // Pass market config for dynamic deleverage
+      await executeDeleverage(50, marketConfigRef.current ?? undefined);
       setUnwindTxStatus('Position closed successfully!');
       refreshData();
       setTimeout(() => setUnwindTxStatus(''), 4000);

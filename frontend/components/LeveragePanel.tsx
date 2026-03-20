@@ -6,6 +6,7 @@ import { formatEther } from 'viem';
 import { useLeverageContract } from '@/hooks/useLeverageContract';
 import { useAppStore } from '@/store/useAppStore';
 import type { ReserveInfo } from '@/lib/types';
+import type { MarketConfig } from '@/lib/leverageContract';
 import Tooltip from '@/components/Tooltip';
 import TransactionStepper, { type TxStep, type TxStepStatus } from '@/components/ui/TransactionStepper';
 
@@ -13,11 +14,12 @@ interface LeveragePanelProps {
   onSuccess: () => void;
   reserveInfo: ReserveInfo | null;
   exchangeRate: number;
+  marketConfig?: MarketConfig | null;
 }
 
 const LEVERAGE_PRESETS = [2, 5, 10] as const;
 
-export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: LeveragePanelProps) {
+export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate, marketConfig }: LeveragePanelProps) {
   const { isConnected, simulateLeverage, getMaxSafeLeverage, executeLeverage, address } = useLeverageContract();
 
   const walletBalance = useAppStore((s) => s.walletBalance);
@@ -42,12 +44,12 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
   const loadMaxLeverage = useCallback(async () => {
     if (!isConnected) return;
     try {
-      const maxLev = await getMaxSafeLeverage();
+      const maxLev = await getMaxSafeLeverage(marketConfig?.marketParams);
       setMaxLeverage(Math.min(maxLev, 18.0));
     } catch {
       setMaxLeverage(18.0);
     }
-  }, [isConnected, getMaxSafeLeverage]);
+  }, [isConnected, getMaxSafeLeverage, marketConfig]);
 
   useEffect(() => { loadMaxLeverage(); }, [loadMaxLeverage]);
   useEffect(() => { if (leverage > maxLeverage) setLeverage(maxLeverage); }, [maxLeverage]);
@@ -59,7 +61,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
     }
     setLoading(true);
     try {
-      const result = await simulateLeverage(leverage, parseFloat(deposit));
+      const result = await simulateLeverage(leverage, parseFloat(deposit), marketConfig?.marketParams);
       setSimulation(result);
     } catch {
       setSimulation(null);
@@ -81,7 +83,7 @@ export default function LeveragePanel({ onSuccess, reserveInfo, exchangeRate }: 
     try {
       setTxStep('authorize');
       setTxStatus('Authorizing Morpho...');
-      await executeLeverage(leverage, parseFloat(deposit));
+      await executeLeverage(leverage, parseFloat(deposit), 50, marketConfig ?? undefined);
       setTxStep('confirm');
       setTxStatus('Position opened!');
       onSuccess();

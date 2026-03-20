@@ -58,8 +58,10 @@ export interface MorphoMarket {
   borrowAssets: string;
   supplyAssetsUsd: number | null;
   oracleAddress: string | null;
+  irmAddress: string | null;
   oracleType: string | null;
   oraclePrice: number | null;
+  lltvRaw: string;
   chainId: number;
   chainSlug: string;
   supplyingVaults: SupplyingVault[];
@@ -76,6 +78,7 @@ const QUERY = `
       items {
         uniqueKey
         lltv
+        irmAddress
         morphoBlue { chain { id network } }
         collateralAsset { symbol address decimals }
         loanAsset { symbol address }
@@ -83,7 +86,7 @@ const QUERY = `
           borrowApy supplyApy utilization price
           supplyAssets borrowAssets supplyAssetsUsd
         }
-        oracleAddress
+        oracle { address }
         oracleInfo { type }
         supplyingVaults {
           address
@@ -169,9 +172,11 @@ export async function GET(request: Request) {
         supplyAssets: m.state.supplyAssets,
         borrowAssets: m.state.borrowAssets,
         supplyAssetsUsd: m.state.supplyAssetsUsd,
-        oracleAddress: m.oracleAddress || null,
+        oracleAddress: m.oracle?.address || null,
+        irmAddress: m.irmAddress || null,
         oracleType: m.oracleInfo?.type || null,
         oraclePrice: m.state.price ? Number(BigInt(m.state.price)) / 1e36 : null,
+        lltvRaw: m.lltv,
         chainId: m.morphoBlue?.chain?.id || 0,
         chainSlug: CHAIN_ID_TO_SLUG[m.morphoBlue?.chain?.id] || 'unknown',
         supplyingVaults: (m.supplyingVaults || []).map((v: any) => ({

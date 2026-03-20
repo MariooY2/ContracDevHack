@@ -397,6 +397,84 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
   border-radius: 8px;
 }
 
+/* Loading bars */
+@keyframes bar-bounce {
+  0%, 80%, 100% { transform: scaleY(0.4); opacity: 0.3; }
+  40% { transform: scaleY(1); opacity: 1; }
+}
+.loader-bars {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+}
+.loader-bars span {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent-primary);
+  animation: bar-bounce 1.2s ease-in-out infinite;
+}
+.loader-bars span:nth-child(1) { animation-delay: 0s; }
+.loader-bars span:nth-child(2) { animation-delay: 0.15s; }
+.loader-bars span:nth-child(3) { animation-delay: 0.3s; }
+.loader-bars span:nth-child(4) { animation-delay: 0.45s; }
+
+/* Loading text label */
+.loading-text {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--text-caption);
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+/* Oracle-specific card loader */
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.6; }
+  50% { transform: scale(1.1); opacity: 0.2; }
+  100% { transform: scale(0.8); opacity: 0.6; }
+}
+@keyframes scan-line {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.oracle-loader {
+  position: relative;
+  overflow: hidden;
+}
+.oracle-loader::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(41, 115, 255, 0.04) 40%,
+    rgba(41, 115, 255, 0.08) 50%,
+    rgba(41, 115, 255, 0.04) 60%,
+    transparent 100%
+  );
+  animation: scan-line 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+.oracle-loader-icon {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 2px solid rgba(41, 115, 255, 0.15);
+  border-top-color: var(--accent-primary);
+  animation: spin-ring 1s linear infinite;
+  position: relative;
+}
+.oracle-loader-icon::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px solid rgba(41, 115, 255, 0.08);
+  animation: pulse-ring 2s ease-in-out infinite;
+}
+
 /* Page loader */
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(16px); }
@@ -648,6 +726,10 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
 /* ── Reduced motion ──────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .loader-ring,
+  .loader-bars span,
+  .oracle-loader::after,
+  .oracle-loader-icon,
+  .oracle-loader-icon::after,
   .skeleton,
   .hero-orb-mobile {
     animation: none !important;

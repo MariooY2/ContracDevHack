@@ -11,14 +11,55 @@ export const MORPHO_ADDRESSES = {
   WETH: '0x4200000000000000000000000000000000000006' as Address,
 } as const;
 
+// Chain ID → Morpho Blue address (same across all chains)
+export const MORPHO_BLUE_BY_CHAIN: Record<number, Address> = {
+  1: '0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb',
+  8453: '0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb',
+  42161: '0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb',
+  137: '0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb',
+};
+
+// Dynamic market params type — built from API data
+export interface MarketParams {
+  loanToken: Address;
+  collateralToken: Address;
+  oracle: Address;
+  irm: Address;
+  lltv: bigint;
+}
+
+// Full market config passed to leverage/deleverage functions
+export interface MarketConfig {
+  marketId: string;
+  marketParams: MarketParams;
+  chainId: number;
+}
+
+// Build MarketParams from API market data
+export function buildMarketParams(market: {
+  loanAddress: string;
+  collateralAddress: string;
+  oracleAddress: string | null;
+  irmAddress: string | null;
+  lltvRaw: string;
+}): MarketParams {
+  return {
+    loanToken: market.loanAddress as Address,
+    collateralToken: market.collateralAddress as Address,
+    oracle: (market.oracleAddress || '0x0000000000000000000000000000000000000000') as Address,
+    irm: (market.irmAddress || '0x0000000000000000000000000000000000000000') as Address,
+    lltv: BigInt(market.lltvRaw),
+  };
+}
+
 // Default wstETH/WETH market on Base
-export const DEFAULT_MARKET_PARAMS = {
+export const DEFAULT_MARKET_PARAMS: MarketParams = {
   loanToken: MORPHO_ADDRESSES.WETH,
   collateralToken: MORPHO_ADDRESSES.WSTETH,
   oracle: '0x4A11590e5326138B514E08A9B52202D42077Ca65' as Address,
   irm: '0x46415998764C29aB2a25CbeA6254146D50D22687' as Address,
   lltv: BigInt('945000000000000000'), // 94.5%
-} as const;
+};
 
 export const MORPHO_MARKET_ID = '0x3a4048c64ba1b375330d376b1ce40e4047d03b47ab4d48af484edec9fec801ba' as const;
 

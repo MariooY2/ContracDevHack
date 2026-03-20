@@ -8,10 +8,10 @@
  * - Used by both the cron refresh endpoint and the oracle-data API route
  */
 
-import { type Log, decodeAbiParameters, hexToBigInt, numberToHex } from 'viem';
+import { type Log, decodeAbiParameters, hexToBigInt, numberToHex, getAddress } from 'viem';
 import { supabase } from './supabase';
 import { type OracleConfig } from './oracleMap';
-import { getPublicClient, type ChainSlug } from './rpcClients';
+import { getPublicClient, getLogsClient, type ChainSlug } from './rpcClients';
 
 // ── Constants ───────────────────────────────────────────────────────────
 
@@ -27,8 +27,14 @@ const ERC4626_DEPOSIT_TOPIC =
 const ERC4626_WITHDRAW_TOPIC =
   '0xfbde797d201c681b91056529119e0b02407c7bb96a4a2c75c01fc9667232c8db' as const;
 
-// Max block range per getLogs call (safe for most RPC providers)
-const MAX_BLOCK_RANGE = 10_000;
+// Max block range per getLogs call — using free public RPCs (not Alchemy)
+const MAX_BLOCK_RANGE_DEFAULT = 2_000;
+const MAX_BLOCK_RANGE_PER_CHAIN: Record<string, number> = {
+  ethereum: 5_000,
+  base: 5_000,
+  polygon: 1_000,
+  arbitrum: 500,
+};
 
 // Approximate blocks per day per chain (for initial backfill range)
 const BLOCKS_PER_DAY: Record<string, number> = {
@@ -83,13 +89,15 @@ async function fetchLogsChunked(
   fromBlock: bigint,
   toBlock: bigint
 ): Promise<Log[]> {
-  const client = getPublicClient(chainSlug as ChainSlug);
+  // Use free public RPC for getLogs (supports large block ranges)
+  const client = getLogsClient(chainSlug as ChainSlug);
   const allLogs: Log[] = [];
+  const chunkSize = BigInt(MAX_BLOCK_RANGE_PER_CHAIN[chainSlug] || MAX_BLOCK_RANGE_DEFAULT);
 
-  for (let start = fromBlock; start <= toBlock; start += BigInt(MAX_BLOCK_RANGE)) {
-    const end = start + BigInt(MAX_BLOCK_RANGE) - 1n > toBlock
+  for (let start = fromBlock; start <= toBlock; start += chunkSize) {
+    const end = start + chunkSize - 1n > toBlock
       ? toBlock
-      : start + BigInt(MAX_BLOCK_RANGE) - 1n;
+      : start + chunkSize - 1n;
 
     // Use raw eth_getLogs to pass topics directly (viem's typed getLogs doesn't accept raw topics)
     const rawLogs = await client.request({
@@ -210,8 +218,9 @@ function decodeEthereumUniversalLogs(
   }
 
   // wstETH TokenRebased: topic0 = 0xff08c3ef...
-  // data = (uint256 reportTimestamp, uint256 timeElapsed, uint256 preTotalShares,
-  //         uint256 preTotalEther, uint256 postTotalShares, uint256 postTotalEther)
+  // reportTimestamp is INDEXED (topic1), so data starts at timeElapsed
+  // data = (timeElapsed, preTotalShares, preTotalEther, postTotalShares, postTotalEther, sharesMintedAsFees)
+  // rate = postTotalEther (slot4) / postTotalShares (slot3) — matches Dune query
   if (topic0 === '0xff08c3ef606d198e316ef5b822193c489965899eb4e3c248cea1a4626c3eda50') {
     return logs
       .map((log, i) => {
@@ -219,17 +228,17 @@ function decodeEthereumUniversalLogs(
           if (!log.data) return null;
           const decoded = decodeAbiParameters(
             [
-              { type: 'uint256' }, // reportTimestamp
-              { type: 'uint256' }, // timeElapsed
-              { type: 'uint256' }, // preTotalShares
-              { type: 'uint256' }, // preTotalEther
-              { type: 'uint256' }, // postTotalShares
-              { type: 'uint256' }, // postTotalEther
+              { type: 'uint256' }, // timeElapsed (slot 0)
+              { type: 'uint256' }, // preTotalShares (slot 1)
+              { type: 'uint256' }, // preTotalEther (slot 2)
+              { type: 'uint256' }, // postTotalShares (slot 3)
+              { type: 'uint256' }, // postTotalEther (slot 4)
+              { type: 'uint256' }, // sharesMintedAsFees (slot 5)
             ],
             log.data as `0x${string}`
           );
-          const postTotalShares = decoded[4];
-          const postTotalEther = decoded[5];
+          const postTotalShares = decoded[3];
+          const postTotalEther = decoded[4];
           if (postTotalShares === 0n) return null;
           const rate = Number(postTotalEther) / Number(postTotalShares);
           if (rate <= 0 || !isFinite(rate)) return null;
@@ -239,8 +248,39 @@ function decodeEthereumUniversalLogs(
       .filter((p): p is Omit<OraclePoint, 'timestamp'> => p !== null);
   }
 
-  // weETH (0x11c6bf55...) and ezETH (0x4e2ca051...):
-  // Generic fallback — try to decode as (uint256, uint256) = (value, total) → rate = value/total
+  // ezETH Deposit(address depositor, IERC20 token, uint256 amount, uint256 ezETHMinted, uint256 referralId)
+  // No indexed params — all 5 are in data
+  // data = (depositor, token, amount, ezETHMinted, referralId)
+  // rate = amount (slot 2) / ezETHMinted (slot 3) — matches Dune query
+  const EZETH_DEPOSIT_TOPIC = '0x4e2ca0515ed1aef1395f66b5303bb5d6f1bf9d61a353fa53f73f8ac9973fa9f6';
+  if (topic0 === EZETH_DEPOSIT_TOPIC) {
+    return logs
+      .map((log, i) => {
+        try {
+          if (!log.data) return null;
+          const decoded = decodeAbiParameters(
+            [
+              { type: 'address' }, // depositor (slot 0)
+              { type: 'address' }, // token (slot 1)
+              { type: 'uint256' }, // amount — ETH deposited (slot 2)
+              { type: 'uint256' }, // ezETHMinted (slot 3)
+              { type: 'uint256' }, // referralId (slot 4)
+            ],
+            log.data as `0x${string}`
+          );
+          const amount = decoded[2] as bigint;
+          const ezETHMinted = decoded[3] as bigint;
+          if (ezETHMinted === 0n) return null;
+          const rate = Number(amount) / Number(ezETHMinted);
+          if (rate <= 0 || !isFinite(rate)) return null;
+          return { roundId: Number(log.blockNumber ?? i), rate, block: Number(log.blockNumber) };
+        } catch { return null; }
+      })
+      .filter((p): p is Omit<OraclePoint, 'timestamp'> => p !== null);
+  }
+
+  // weETH Rebase (0x11c6bf55...): totalEthLocked / totalEEthShares
+  // Generic fallback — decode as (uint256, uint256) = (value, total) → rate = value/total
   return logs
     .map((log, i) => {
       try {
@@ -306,11 +346,226 @@ function filterOutliers(points: OraclePoint[]): OraclePoint[] {
   return points.filter(p => Math.abs(p.rate - median) / median < 0.2);
 }
 
+// ── Chainlink Aggregator Resolution ──────────────────────────────────────
+
+// Cache: proxy address → aggregator address
+const aggregatorCache = new Map<string, `0x${string}`>();
+
+/**
+ * Chainlink proxies emit AnswerUpdated from their underlying aggregator contract.
+ * We need to resolve the aggregator address to query events via eth_getLogs.
+ * Falls back to the proxy address itself if the call fails.
+ */
+async function resolveChainlinkAggregator(
+  chainSlug: string,
+  proxyAddr: `0x${string}`
+): Promise<`0x${string}`> {
+  const cacheKey = `${chainSlug}:${proxyAddr}`;
+  const cached = aggregatorCache.get(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const client = getPublicClient(chainSlug as ChainSlug);
+    const result = await client.readContract({
+      address: proxyAddr,
+      abi: [{ name: 'aggregator', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] }],
+      functionName: 'aggregator',
+    });
+    const aggAddr = (result as string).toLowerCase() as `0x${string}`;
+    console.log(`[oracleSync] Resolved aggregator for ${proxyAddr}: ${aggAddr}`);
+    aggregatorCache.set(cacheKey, aggAddr);
+    return aggAddr;
+  } catch {
+    // Not a proxy, or no aggregator() method — use the address directly
+    aggregatorCache.set(cacheKey, proxyAddr);
+    return proxyAddr;
+  }
+}
+
+// ── latestRoundData() Polling ────────────────────────────────────────────
+
+const LATEST_ROUND_DATA_ABI = [{
+  name: 'latestRoundData',
+  type: 'function',
+  stateMutability: 'view',
+  inputs: [],
+  outputs: [
+    { name: 'roundId', type: 'uint80' },
+    { name: 'answer', type: 'int256' },
+    { name: 'startedAt', type: 'uint256' },
+    { name: 'updatedAt', type: 'uint256' },
+    { name: 'answeredInRound', type: 'uint80' },
+  ],
+}] as const;
+
+const GET_ROUND_DATA_ABI = [{
+  name: 'getRoundData',
+  type: 'function',
+  stateMutability: 'view',
+  inputs: [{ name: '_roundId', type: 'uint80' }],
+  outputs: [
+    { name: 'roundId', type: 'uint80' },
+    { name: 'answer', type: 'int256' },
+    { name: 'startedAt', type: 'uint256' },
+    { name: 'updatedAt', type: 'uint256' },
+    { name: 'answeredInRound', type: 'uint80' },
+  ],
+}] as const;
+
+/**
+ * Backfill all missing rounds between lastRoundId+1 and currentRoundId
+ * using getRoundData(). Returns OraclePoint[] for all filled rounds.
+ * Caps at 200 rounds per cron run to avoid timeouts.
+ */
+async function backfillChainlinkRounds(
+  chainSlug: string,
+  address: string,
+  lastSavedRoundId: number,
+  currentRoundId: number,
+  decimals: number = 18
+): Promise<OraclePoint[]> {
+  const client = getPublicClient(chainSlug as ChainSlug);
+  const checksumAddr = getAddress(address.toLowerCase());
+  const points: OraclePoint[] = [];
+
+  const startRound = lastSavedRoundId + 1;
+  const endRound = Math.min(currentRoundId, startRound + 199); // cap at 200 per run
+  const gap = currentRoundId - lastSavedRoundId;
+
+  if (gap <= 0) return [];
+
+  console.log(`[oracleSync] Backfilling ${address}: rounds ${startRound}→${endRound} (${gap} total gap, capped at 200)`);
+
+  // Batch calls in groups of 10
+  for (let i = startRound; i <= endRound; i += 10) {
+    const batch = [];
+    for (let r = i; r <= Math.min(i + 9, endRound); r++) {
+      batch.push(r);
+    }
+
+    const results = await Promise.allSettled(
+      batch.map(roundId =>
+        client.readContract({
+          address: checksumAddr,
+          abi: GET_ROUND_DATA_ABI,
+          functionName: 'getRoundData',
+          args: [BigInt(roundId)],
+        })
+      )
+    );
+
+    for (let j = 0; j < results.length; j++) {
+      if (results[j].status === 'fulfilled') {
+        const result = (results[j] as PromiseFulfilledResult<readonly [bigint, bigint, bigint, bigint, bigint]>).value;
+        const roundId = Number(result[0]);
+        const answer = result[1];
+        const updatedAt = Number(result[3]);
+        const rate = Number(answer) / 10 ** decimals;
+
+        if (rate > 0 && isFinite(rate) && updatedAt > 0) {
+          points.push({ roundId, rate, timestamp: updatedAt, block: 0 });
+        }
+      }
+    }
+  }
+
+  console.log(`[oracleSync] Backfilled ${points.length} rounds for ${address}`);
+  return points;
+}
+
+/**
+ * Sync a Chainlink oracle: get latest round, backfill any missing rounds since last saved.
+ */
+async function syncChainlinkOracle(
+  chainSlug: string,
+  address: string,
+  decimals: number = 18
+): Promise<OraclePoint[]> {
+  const client = getPublicClient(chainSlug as ChainSlug);
+  const checksumAddr = getAddress(address.toLowerCase());
+
+  // Get current latest round
+  const result = await client.readContract({
+    address: checksumAddr,
+    abi: LATEST_ROUND_DATA_ABI,
+    functionName: 'latestRoundData',
+  });
+
+  const currentRoundId = Number(result[0]);
+  const currentRate = Number(result[1]) / 10 ** decimals;
+  const currentUpdatedAt = Number(result[3]);
+
+  console.log(`[oracleSync] latestRoundData for ${address}: rate=${currentRate.toFixed(6)}, round=${currentRoundId}, updated=${new Date(currentUpdatedAt * 1000).toISOString()}`);
+
+  // Find the last saved round_id from Supabase
+  const { data: lastRow } = await supabase
+    .from('oracle_rounds')
+    .select('round_id')
+    .eq('oracle_address', address.toLowerCase())
+    .eq('chain_slug', chainSlug)
+    .order('round_id', { ascending: false })
+    .limit(1)
+    .single();
+
+  const lastSavedRound = lastRow?.round_id ? Number(lastRow.round_id) : 0;
+
+  if (lastSavedRound >= currentRoundId) {
+    return []; // Already up to date
+  }
+
+  // Backfill missing rounds
+  const points = await backfillChainlinkRounds(
+    chainSlug, address, lastSavedRound, currentRoundId, decimals
+  );
+
+  return points;
+}
+
+// ── TVL-Ratio Oracle (ezETH) ────────────────────────────────────────────
+
+const CALCULATE_TVLS_ABI = [
+  { inputs: [], name: 'calculateTVLs', outputs: [{ type: 'uint256[][]' }, { type: 'uint256[]' }, { type: 'uint256' }], stateMutability: 'view', type: 'function' },
+] as const;
+
+const TOTAL_SUPPLY_ABI = [
+  { inputs: [], name: 'totalSupply', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' },
+] as const;
+
+// ezETH token address on Ethereum
+const EZETH_TOKEN = '0xbf5495Efe5DB9ce00f80364C8B423567e58d2110' as const;
+
+/**
+ * Sync ezETH rate via calculateTVLs() / totalSupply().
+ * Returns a single point with the current exchange rate.
+ */
+async function syncTvlRatioOracle(config: OracleConfig): Promise<OraclePoint[]> {
+  const client = getPublicClient(config.chainSlug as ChainSlug);
+  const restakeManager = getAddress(config.address.toLowerCase());
+
+  const [tvlResult, supply] = await Promise.all([
+    client.readContract({ address: restakeManager, abi: CALCULATE_TVLS_ABI, functionName: 'calculateTVLs' }),
+    client.readContract({ address: EZETH_TOKEN, abi: TOTAL_SUPPLY_ABI, functionName: 'totalSupply' }),
+  ]);
+
+  const totalTVL = tvlResult[2] as bigint;
+  if (supply === 0n) return [];
+
+  const rate = Number(totalTVL) / Number(supply);
+  const timestamp = Math.floor(Date.now() / 1000);
+
+  console.log(`[oracleSync] ezETH tvl-ratio: TVL=${(Number(totalTVL) / 1e18).toFixed(2)} ETH, supply=${(Number(supply) / 1e18).toFixed(2)}, rate=${rate.toFixed(6)}`);
+
+  if (rate <= 0 || !isFinite(rate)) return [];
+
+  return [{ roundId: timestamp, rate, timestamp, block: 0 }];
+}
+
 // ── Fetch Oracle Logs via RPC ───────────────────────────────────────────
 
 /**
  * Fetch new oracle data points via RPC getLogs for a single oracle.
  * Returns decoded OraclePoint[] from fromBlock+1 to toBlock.
+ * For Chainlink oracles: falls back to latestRoundData() if no events found.
  */
 async function fetchOracleLogsRPC(
   config: OracleConfig,
@@ -321,15 +576,14 @@ async function fetchOracleLogsRPC(
   const addr = config.address.toLowerCase() as `0x${string}`;
 
   if (config.type === 'chainlink') {
-    // Chainlink AnswerUpdated — timestamp is in the event data
-    const logs = await fetchLogsChunked(
-      config.chainSlug,
-      addr,
-      [CHAINLINK_ANSWER_UPDATED_TOPIC],
-      fromBlock,
-      toBlock
-    );
-    return decodeChainlinkLogs(logs);
+    // Chainlink OCR aggregators don't emit events from the proxy address.
+    // Use getRoundData() to backfill missing rounds + get current rate.
+    return syncChainlinkOracle(config.chainSlug, config.address, config.decimals ?? 18);
+  }
+
+  if (config.type === 'tvl-ratio') {
+    // ezETH: rate = RestakeManager.calculateTVLs().totalTVL / ezETH.totalSupply()
+    return syncTvlRatioOracle(config);
   }
 
   if (config.type === 'custom') {
@@ -349,6 +603,29 @@ async function fetchOracleLogsRPC(
     const topic0 = config.topic0;
     if (!topic0) throw new Error(`No topic0 for ethereum-universal oracle ${addr}`);
 
+    // osETH/rsETH use AnswerUpdated — resolve aggregator for Chainlink feeds
+    if (topic0 === CHAINLINK_ANSWER_UPDATED_TOPIC) {
+      const eventAddr = await resolveChainlinkAggregator(config.chainSlug, addr);
+      const logs = await fetchLogsChunked(
+        config.chainSlug,
+        eventAddr,
+        [CHAINLINK_ANSWER_UPDATED_TOPIC],
+        fromBlock,
+        toBlock
+      );
+      const points = decodeChainlinkLogs(logs);
+      if (points.length === 0) {
+        // Try getRoundData backfill — some contracts don't support it, so catch errors
+        try {
+          return await syncChainlinkOracle(config.chainSlug, config.address, config.decimals ?? 18);
+        } catch {
+          console.log(`[oracleSync] ${config.pair} doesn't support getRoundData, skipping backfill`);
+          return [];
+        }
+      }
+      return points;
+    }
+
     const logs = await fetchLogsChunked(
       config.chainSlug,
       addr,
@@ -356,11 +633,6 @@ async function fetchOracleLogsRPC(
       fromBlock,
       toBlock
     );
-
-    // osETH/rsETH use AnswerUpdated — Chainlink decoder handles timestamps
-    if (topic0 === CHAINLINK_ANSWER_UPDATED_TOPIC) {
-      return decodeChainlinkLogs(logs);
-    }
 
     const rawPoints = decodeEthereumUniversalLogs(logs, topic0);
     const withTimestamps = await resolveTimestamps(config.chainSlug, rawPoints, blockTimestampCache);
@@ -371,6 +643,10 @@ async function fetchOracleLogsRPC(
 }
 
 // ── Supabase Read/Write ─────────────────────────────────────────────────
+
+// Max points returned from the API (via Supabase RPC sampling)
+// Must stay at or below PostgREST's max-rows limit (default 1000)
+// Client-side LTTB in DepegChart handles final downsampling per time range
 
 export async function readOraclePoints(
   address: string,
@@ -385,21 +661,42 @@ export async function readOraclePoints(
     .eq('chain_slug', chainSlug)
     .single();
 
-  const { data, error } = await supabase
-    .from('oracle_rounds')
-    .select('round_id, rate, timestamp, block_number')
-    .eq('oracle_address', addr)
-    .eq('chain_slug', chainSlug)
-    .order('timestamp', { ascending: true });
+  // Postgres BIGINT may come through as strings via PostgREST — coerce to numbers
+  const toPoint = (row: { round_id: number | string; rate: number | string; timestamp: number | string; block_number: number | string }) => ({
+    roundId: Number(row.round_id),
+    rate: Number(row.rate),
+    timestamp: Number(row.timestamp),
+    block: Number(row.block_number),
+  });
 
-  if (error || !data || data.length === 0) return null;
+  // Fetch ALL rows with pagination (PostgREST caps at 1000 per request)
+  const PAGE = 1000;
+  const points: OraclePoint[] = [];
+  let offset = 0;
 
-  const points: OraclePoint[] = data.map(row => ({
-    roundId: row.round_id,
-    rate: row.rate,
-    timestamp: row.timestamp,
-    block: row.block_number,
-  }));
+  while (true) {
+    const { data, error } = await supabase
+      .from('oracle_rounds')
+      .select('round_id, rate, timestamp, block_number')
+      .eq('oracle_address', addr)
+      .eq('chain_slug', chainSlug)
+      .order('timestamp', { ascending: true })
+      .range(offset, offset + PAGE - 1);
+
+    if (error) {
+      console.warn(`[oracleSync] Failed to fetch oracle_rounds for ${addr}:`, error.message);
+      break;
+    }
+    if (!data || data.length === 0) break;
+
+    points.push(...data.map(toPoint));
+    if (data.length < PAGE) break; // last page
+    offset += PAGE;
+  }
+
+  if (points.length === 0) return null;
+
+  console.log(`[oracleSync] Fetched ${points.length} total points for ${addr} on ${chainSlug}`);
 
   const pair = meta?.pair || KNOWN_ORACLES[addr]?.pair || address;
   return { points, pair };
@@ -510,14 +807,21 @@ export async function syncSingleOracle(
     return { address: config.address, pair: config.pair, pointCount: 0, newBlocks: 0 };
   }
 
-  console.log(`[oracleSync] Syncing ${config.pair} on ${config.chainSlug}: blocks ${fromBlock}→${head}`);
+  // Cap scan range per cron run to avoid timeouts on large backfills
+  // Each chain processes ~MAX_BLOCK_RANGE chunks sequentially
+  const blocksPerDay = BLOCKS_PER_DAY[config.chainSlug] || 43_200;
+  const maxScanRange = BigInt(blocksPerDay * 7); // max 7 days per cron run
+  const effectiveHead = (head - fromBlock > maxScanRange) ? fromBlock + maxScanRange : head;
 
-  const points = await fetchOracleLogsRPC(config, fromBlock + 1n, head, cache);
+  console.log(`[oracleSync] Syncing ${config.pair} on ${config.chainSlug}: blocks ${fromBlock}→${effectiveHead}${effectiveHead < head ? ` (capped, ${head - effectiveHead} blocks remaining)` : ''}`);
 
+  const points = await fetchOracleLogsRPC(config, fromBlock + 1n, effectiveHead, cache);
+
+  // Always advance last_synced_block to the range we actually scanned
+  const newSyncedBlock = Number(effectiveHead);
   if (points.length > 0) {
-    await writeOraclePoints(config.address, config.chainSlug, points, config.pair, config.type, Number(head));
+    await writeOraclePoints(config.address, config.chainSlug, points, config.pair, config.type, newSyncedBlock);
   } else {
-    // Update last_synced_block even if no new points (so we don't re-scan)
     await supabase
       .from('oracle_sync_meta')
       .upsert({
@@ -527,7 +831,7 @@ export async function syncSingleOracle(
         oracle_type: config.type,
         last_sync_ts: Date.now(),
         row_count: 0,
-        last_synced_block: Number(head),
+        last_synced_block: newSyncedBlock,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'oracle_address,chain_slug' });
   }

@@ -57,7 +57,21 @@ export function PageLoader({ label = 'Connecting to Protocol' }: { label?: strin
   );
 }
 
-export function CardLoader({ label = 'Loading' }: { label?: string }) {
+export function CardLoader({ label = 'Loading', variant = 'bars' }: { label?: string; variant?: 'bars' | 'oracle' }) {
+  if (variant === 'oracle') {
+    return (
+      <div className="glass-inner oracle-loader p-10 flex flex-col items-center gap-5">
+        <div className="oracle-loader-icon" />
+        <div className="flex flex-col items-center gap-1.5">
+          <span className="loading-text">{label}</span>
+          <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono, monospace)' }}>
+            Querying on-chain data
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="glass-inner p-8 flex flex-col items-center gap-4">
       <div className="loader-bars"><span /><span /><span /><span /></div>

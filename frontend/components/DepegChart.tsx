@@ -104,7 +104,10 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
     let pts = allPoints;
     const range = TIME_RANGES.find(r => r.label === timeRange);
     if (range && range.days > 0 && pts.length > 0) {
-      const cutoff = Math.floor(Date.now() / 1000) - range.days * 86400;
+      // Use the latest data point's timestamp as anchor (not Date.now())
+      // so time ranges work correctly even when data isn't real-time
+      const latestTs = pts[pts.length - 1].timestamp;
+      const cutoff = latestTs - range.days * 86400;
       const filtered = pts.filter(p => p.timestamp >= cutoff);
       if (filtered.length >= 2) pts = filtered;
     }
@@ -225,36 +228,33 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
     const yMin = rateMin - rateRange * 0.05;
     const yMax = rateMax + rateRange * 0.05;
 
-    const _toX = (i: number) => PAD.left + (i / Math.max(oraclePoints.length - 1, 1)) * chartW;
+    // Use timestamp-based X positioning (proportional to time, not index)
+    const tMin = oraclePoints.length > 0 ? oraclePoints[0].timestamp : 0;
+    const tMax = oraclePoints.length > 0 ? oraclePoints[oraclePoints.length - 1].timestamp : 1;
+    const tRange = tMax - tMin || 1;
+
+    const _toXByTs = (ts: number) => PAD.left + ((ts - tMin) / tRange) * chartW;
     const _toY = (rate: number) => PAD.top + (1 - (rate - yMin) / (yMax - yMin)) * chartH;
 
     const ratePath = oraclePoints
-      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${_toX(i)} ${_toY(p.rate)}`)
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${_toXByTs(p.timestamp)} ${_toY(p.rate)}`)
       .join(' ');
 
     const areaPath = oraclePoints.length > 1
-      ? ratePath + ` L ${_toX(oraclePoints.length - 1)} ${_toY(yMin)} L ${_toX(0)} ${_toY(yMin)} Z`
+      ? ratePath + ` L ${_toXByTs(tMax)} ${_toY(yMin)} L ${_toXByTs(tMin)} ${_toY(yMin)} Z`
       : '';
 
     const yTickCount = 5;
     const yTicks = Array.from({ length: yTickCount }, (_, i) => yMin + ((yMax - yMin) * i) / (yTickCount - 1));
 
-    const xLabels: { idx: number; label: string }[] = [];
+    const xLabels: { ts: number; label: string }[] = [];
     if (oraclePoints.length > 1) {
-      const tMin = oraclePoints[0].timestamp;
-      const tMax = oraclePoints[oraclePoints.length - 1].timestamp;
       const xLabelCount = 6;
       for (let n = 0; n < xLabelCount; n++) {
-        const targetTs = tMin + ((tMax - tMin) * n) / (xLabelCount - 1);
-        let bestIdx = 0;
-        let bestDist = Infinity;
-        for (let j = 0; j < oraclePoints.length; j++) {
-          const dist = Math.abs(oraclePoints[j].timestamp - targetTs);
-          if (dist < bestDist) { bestDist = dist; bestIdx = j; }
-        }
-        const d = new Date(oraclePoints[bestIdx].timestamp * 1000);
+        const targetTs = tMin + (tRange * n) / (xLabelCount - 1);
+        const d = new Date(targetTs * 1000);
         xLabels.push({
-          idx: bestIdx,
+          ts: targetTs,
           label: d.toLocaleString('default', { month: 'short', year: '2-digit' }),
         });
       }
@@ -264,12 +264,14 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
       ? ((rates[rates.length - 1] - rates[0]) / rates[0]) * 100
       : 0;
 
-    return { rates, yMin, yMax, ratePath, areaPath, yTicks, xLabels, totalGrowth };
+    return { rates, yMin, yMax, tMin, tRange, ratePath, areaPath, yTicks, xLabels, totalGrowth };
   }, [oraclePoints, PAD.left, PAD.top, chartW, chartH]);
 
-  const { yMin, yMax, ratePath, areaPath, yTicks, xLabels, totalGrowth } = chartData;
+  const { yMin, yMax, tMin, tRange, ratePath, areaPath, yTicks, xLabels, totalGrowth } = chartData;
 
-  const toX = (i: number) => PAD.left + (i / Math.max(oraclePoints.length - 1, 1)) * chartW;
+  // Timestamp-based X positioning
+  const toXByTs = (ts: number) => PAD.left + ((ts - tMin) / tRange) * chartW;
+  const toX = (i: number) => oraclePoints[i] ? toXByTs(oraclePoints[i].timestamp) : PAD.left;
   const toY = (rate: number) => PAD.top + (1 - (rate - yMin) / (yMax - yMin)) * chartH;
 
   // Liquidation rate lines: if rate drops by X% from current, you get liquidated
@@ -297,11 +299,16 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
     if (!svg || oraclePoints.length === 0) return;
     const rect = svg.getBoundingClientRect();
     const mouseX = ((e.clientX - rect.left) / rect.width) * W;
-    // Map mouseX to data index
-    const dataIdx = Math.round(((mouseX - PAD.left) / chartW) * (oraclePoints.length - 1));
-    const clamped = Math.max(0, Math.min(oraclePoints.length - 1, dataIdx));
-    setHoverIdx(clamped);
-  }, [oraclePoints.length, W, PAD.left, chartW]);
+    // Map mouseX to timestamp, then find closest data point
+    const hoverTs = tMin + ((mouseX - PAD.left) / chartW) * tRange;
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let j = 0; j < oraclePoints.length; j++) {
+      const dist = Math.abs(oraclePoints[j].timestamp - hoverTs);
+      if (dist < bestDist) { bestDist = dist; bestIdx = j; }
+    }
+    setHoverIdx(bestIdx);
+  }, [oraclePoints, W, PAD.left, chartW, tMin, tRange]);
 
   const handleSvgMouseLeave = useCallback(() => setHoverIdx(null), []);
 
@@ -400,7 +407,7 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
       )}
 
       {loading ? (
-        <CardLoader label="Fetching oracle data" />
+        <CardLoader label="Fetching oracle data" variant="oracle" />
       ) : error === 'no-oracle' ? (
         <div className="glass-inner p-8 text-center space-y-2">
           <p className="text-sm font-sans" style={{ color: 'var(--text-muted)' }}>
@@ -473,8 +480,8 @@ export default function DepegChart({ reserveInfo, collateralSymbol = 'wstETH', c
               ))}
 
               {/* X-axis date labels */}
-              {xLabels.map(({ idx, label }, i) => (
-                <text key={i} x={toX(idx)} y={H - 5} textAnchor="middle" fill="#64748b" fontSize="8">
+              {xLabels.map(({ ts, label }, i) => (
+                <text key={i} x={toXByTs(ts)} y={H - 5} textAnchor="middle" fill="#64748b" fontSize="8">
                   {label}
                 </text>
               ))}

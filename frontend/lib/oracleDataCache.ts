@@ -22,14 +22,17 @@ export interface OracleDataResult {
   cacheAgeMs: number;
 }
 
+// Bump version to invalidate stale localStorage entries after RPC sampling fix
+const CACHE_VERSION = 'v2';
+
 function cacheKey(address: string, chainSlug?: string) {
   const chain = chainSlug || 'base';
-  return `volt_oracle_${chain}_${address.toLowerCase()}`;
+  return `volt_oracle_${CACHE_VERSION}_${chain}_${address.toLowerCase()}`;
 }
 
 function metaKey(address: string, chainSlug?: string) {
   const chain = chainSlug || 'base';
-  return `volt_oracle_meta_${chain}_${address.toLowerCase()}`;
+  return `volt_oracle_meta_${CACHE_VERSION}_${chain}_${address.toLowerCase()}`;
 }
 
 function loadCache(address: string, chainSlug?: string): { points: OracleDataPoint[]; pair: string; lastFetchTs: number } | null {

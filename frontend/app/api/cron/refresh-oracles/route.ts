@@ -14,8 +14,10 @@ export async function GET(request: Request) {
   const start = Date.now();
 
   try {
-    const configs = Object.values(ORACLE_MAP);
-    console.log(`[cron] Starting oracle sync for ${configs.length} oracles...`);
+    // Only sync chains with reliable free-tier RPCs
+    const ACTIVE_CHAINS = new Set(['base', 'ethereum']);
+    const configs = Object.values(ORACLE_MAP).filter(c => ACTIVE_CHAINS.has(c.chainSlug));
+    console.log(`[cron] Starting oracle sync for ${configs.length} oracles (chains: ${[...ACTIVE_CHAINS].join(', ')})...`);
 
     // Incremental RPC sync — fetches new logs since last_synced_block
     const result = await syncAllOracles(configs);
