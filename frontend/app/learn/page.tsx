@@ -1,28 +1,31 @@
 'use client';
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import Link from 'next/link';
+import LeverageSimulator from '@/components/LeverageSimulator';
 
 /* ─── Types ────────────────────────────────────────────── */
 interface Section {
   id: string;
   title: string;
+  subtitle: string;
   icon: React.ReactNode;
   content: React.ReactNode;
   category: string;
+  readTime: string;
 }
 
 /* ─── Shared components ────────────────────────────────── */
 const ChevronIcon = ({ open }: { open: boolean }) => (
   <motion.svg
-    width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-    animate={{ rotate: open ? 90 : 0 }}
-    transition={{ duration: 0.2 }}
+    animate={{ rotate: open ? 180 : 0 }}
+    transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
     style={{ color: 'var(--text-muted)' }}
   >
-    <path d="M9 18l6-6-6-6" />
+    <path d="M6 9l6 6 6-6" />
   </motion.svg>
 );
 
@@ -56,11 +59,23 @@ const StatCard = ({ label, value, color, sub }: { label: string; value: string; 
 
 /* ─── Category config ──────────────────────────────────── */
 const CATEGORIES = [
-  { slug: 'all', label: 'All Topics' },
-  { slug: 'fundamentals', label: 'DeFi Basics' },
-  { slug: 'volt', label: 'VOLT Protocol' },
-  { slug: 'risk', label: 'Risk & Safety' },
+  { slug: 'all', label: 'All Topics', icon: '{}', count: 16 },
+  { slug: 'fundamentals', label: 'DeFi Basics', icon: 'A', count: 8 },
+  { slug: 'volt', label: 'VOLT Protocol', icon: 'V', count: 4 },
+  { slug: 'risk', label: 'Risk & Safety', icon: '!', count: 4 },
 ] as const;
+
+const CAT_COLORS: Record<string, string> = {
+  fundamentals: '#2973ff',
+  volt: '#a78bfa',
+  risk: '#ef4444',
+};
+
+const CAT_LABELS: Record<string, string> = {
+  fundamentals: 'DEFI BASICS',
+  volt: 'VOLT PROTOCOL',
+  risk: 'RISK & SAFETY',
+};
 
 /* ─── Sections ─────────────────────────────────────────── */
 const sections: Section[] = [
@@ -69,6 +84,8 @@ const sections: Section[] = [
     id: 'ltv-lltv',
     category: 'fundamentals',
     title: 'LTV & Liquidation LTV (LLTV)',
+    subtitle: 'How much you can borrow against your collateral',
+    readTime: '2 min',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: 'var(--accent-primary)' }}>
         <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2"/>
@@ -95,6 +112,8 @@ const sections: Section[] = [
     id: 'utilization',
     category: 'fundamentals',
     title: 'Utilization Rate',
+    subtitle: 'The heartbeat of lending market supply and demand',
+    readTime: '2 min',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#F59E0B' }}>
         <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
@@ -120,6 +139,8 @@ const sections: Section[] = [
     id: 'supply-borrow-apy',
     category: 'fundamentals',
     title: 'Supply APY & Borrow APY',
+    subtitle: 'How lending and borrowing rates are determined',
+    readTime: '2 min',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#10B981' }}>
         <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -132,17 +153,17 @@ const sections: Section[] = [
           <div className="rounded-xl p-4" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
             <p className="font-mono font-bold mb-2" style={{ color: '#10B981' }}>Supply APY</p>
             <ul className="space-y-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
-              <li>• Earned by lenders / depositors</li>
-              <li>• Increases with higher utilization</li>
-              <li>• Interest paid by borrowers</li>
+              <li>Earned by lenders / depositors</li>
+              <li>Increases with higher utilization</li>
+              <li>Interest paid by borrowers</li>
             </ul>
           </div>
           <div className="rounded-xl p-4" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
             <p className="font-mono font-bold mb-2" style={{ color: '#ef4444' }}>Borrow APY</p>
             <ul className="space-y-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
-              <li>• Cost paid by borrowers</li>
-              <li>• Spikes when utilization is high</li>
-              <li>• Your leverage running cost</li>
+              <li>Cost paid by borrowers</li>
+              <li>Spikes when utilization is high</li>
+              <li>Your leverage running cost</li>
             </ul>
           </div>
         </div>
@@ -156,6 +177,8 @@ const sections: Section[] = [
     id: 'collateral-debt',
     category: 'fundamentals',
     title: 'Collateral & Debt',
+    subtitle: 'The building blocks of every leveraged position',
+    readTime: '2 min',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#2973ff' }}>
         <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" stroke="currentColor" strokeWidth="2"/>
@@ -172,11 +195,11 @@ const sections: Section[] = [
         <div className="rounded-xl p-4 mt-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
           <p className="font-mono font-bold mb-2" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-caption)' }}>Worked Example</p>
           <div className="space-y-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
-            <p>• You deposit <strong>10 wstETH</strong> as collateral</p>
-            <p>• You borrow <strong>8 WETH</strong> against it</p>
-            <p>• Your LTV = 8/10 = <strong>80%</strong></p>
-            <p>• Your equity = 10 – 8 = <strong>2 ETH worth</strong></p>
-            <p>• LLTV is 94.5% → you can borrow up to 9.45 WETH max</p>
+            <p>You deposit <strong>10 wstETH</strong> as collateral</p>
+            <p>You borrow <strong>8 WETH</strong> against it</p>
+            <p>Your LTV = 8/10 = <strong>80%</strong></p>
+            <p>Your equity = 10 – 8 = <strong>2 ETH worth</strong></p>
+            <p>LLTV is 94.5% → you can borrow up to 9.45 WETH max</p>
           </div>
         </div>
       </div>
@@ -186,6 +209,8 @@ const sections: Section[] = [
     id: 'liquidation',
     category: 'fundamentals',
     title: 'Liquidation Mechanics',
+    subtitle: 'What happens when positions become undercollateralized',
+    readTime: '3 min',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#ef4444' }}>
         <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -218,6 +243,8 @@ const sections: Section[] = [
     id: 'lst-explained',
     category: 'fundamentals',
     title: 'Liquid Staking Tokens (LSTs)',
+    subtitle: 'Earn staking rewards while keeping your ETH liquid',
+    readTime: '2 min',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#a78bfa' }}>
         <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
@@ -252,6 +279,8 @@ const sections: Section[] = [
     id: 'morpho-blue',
     category: 'fundamentals',
     title: 'What is Morpho Blue?',
+    subtitle: 'The permissionless lending protocol powering VOLT',
+    readTime: '2 min',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#2973ff' }}>
         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" stroke="currentColor" strokeWidth="2"/>
@@ -281,6 +310,8 @@ const sections: Section[] = [
     id: 'oracles',
     category: 'fundamentals',
     title: 'Oracles & Price Feeds',
+    subtitle: 'How smart contracts know real-world prices',
+    readTime: '2 min',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#F59E0B' }}>
         <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
@@ -313,6 +344,8 @@ const sections: Section[] = [
     id: 'what-is-leverage',
     category: 'volt',
     title: 'What is Leverage?',
+    subtitle: 'Amplify your exposure with borrowed capital',
+    readTime: '1 min',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: 'var(--accent-primary)' }}>
         <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -334,6 +367,8 @@ const sections: Section[] = [
     id: 'flash-loans',
     category: 'volt',
     title: 'How Flash Loans Work',
+    subtitle: 'Borrow millions and repay in the same transaction',
+    readTime: '2 min',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#2973ff' }}>
         <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -373,6 +408,8 @@ const sections: Section[] = [
     id: 'net-apy',
     category: 'volt',
     title: 'Net APY & Leverage Economics',
+    subtitle: 'Understanding your real returns from leveraged staking',
+    readTime: '2 min',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#10B981' }}>
         <path d="M23 6l-9.5 9.5-5-5L1 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -414,6 +451,8 @@ const sections: Section[] = [
     id: 'deleverage',
     category: 'volt',
     title: 'Unwinding (Deleveraging)',
+    subtitle: 'How to close your position and reclaim equity',
+    readTime: '2 min',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#a78bfa' }}>
         <path d="M3 12h18M3 12l6-6M3 12l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -455,6 +494,8 @@ const sections: Section[] = [
     id: 'health-factor',
     category: 'risk',
     title: 'Understanding Health Factor',
+    subtitle: 'The single most important metric for your position',
+    readTime: '2 min',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#10B981' }}>
         <path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -477,6 +518,8 @@ const sections: Section[] = [
     id: 'depeg-risk',
     category: 'risk',
     title: 'Depeg Risk',
+    subtitle: 'When LST prices drift from their expected value',
+    readTime: '2 min',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#F59E0B' }}>
         <path d="M3 3v18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -506,6 +549,8 @@ const sections: Section[] = [
     id: 'risks',
     category: 'risk',
     title: 'All Risks Summary',
+    subtitle: 'A comprehensive overview of every risk category',
+    readTime: '3 min',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#ef4444' }}>
         <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" stroke="currentColor" strokeWidth="2"/>
@@ -522,9 +567,12 @@ const sections: Section[] = [
           { title: 'Depeg Risk', color: '#F59E0B', text: 'If an LST depegs from ETH (trades significantly below fair value), highly leveraged positions face liquidation risk. This is the primary price risk in LST/ETH markets.' },
           { title: 'Interest Rate Risk', color: '#10B981', text: 'Borrow rates can spike if utilization increases. A sudden rise in borrow APY could make your leveraged position unprofitable or even push it toward liquidation over time.' },
         ].map((risk) => (
-          <div key={risk.title}>
-            <p className="font-sans font-bold mb-1" style={{ color: risk.color, fontSize: 'var(--text-caption)' }}>{risk.title}</p>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{risk.text}</p>
+          <div key={risk.title} className="flex gap-3">
+            <div className="w-1 rounded-full shrink-0 mt-1" style={{ background: risk.color, height: 16 }} />
+            <div>
+              <p className="font-sans font-bold mb-0.5" style={{ color: risk.color, fontSize: 'var(--text-caption)' }}>{risk.title}</p>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{risk.text}</p>
+            </div>
           </div>
         ))}
       </div>
@@ -534,6 +582,8 @@ const sections: Section[] = [
     id: 'glossary',
     category: 'risk',
     title: 'DeFi Glossary',
+    subtitle: 'Quick reference for common DeFi terminology',
+    readTime: '3 min',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: 'var(--text-primary)' }}>
         <path d="M4 19.5A2.5 2.5 0 016.5 17H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -572,14 +622,21 @@ const sections: Section[] = [
 
 /* ─── Page Component ───────────────────────────────────── */
 export default function LearnPage() {
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['ltv-lltv']));
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set());
   const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [readSections, setReadSections] = useState<Set<string>>(new Set());
+  const tabsRef = useRef<HTMLDivElement>(null);
 
   const toggleSection = (id: string) => {
     setOpenSections((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+        // Mark as read when opened
+        setReadSections((r) => new Set(r).add(id));
+      }
       return next;
     });
   };
@@ -588,141 +645,334 @@ export default function LearnPage() {
     ? sections
     : sections.filter((s) => s.category === activeCategory);
 
+  const progress = Math.round((readSections.size / sections.length) * 100);
+
+  // Group sections by category for the "all" view
+  const groupedSections = activeCategory === 'all'
+    ? (['fundamentals', 'volt', 'risk'] as const).map((cat) => ({
+        category: cat,
+        label: CAT_LABELS[cat],
+        color: CAT_COLORS[cat],
+        items: sections.filter((s) => s.category === cat),
+      }))
+    : [{ category: activeCategory, label: CAT_LABELS[activeCategory] || '', color: CAT_COLORS[activeCategory] || '#2973ff', items: filteredSections }];
+
   return (
-    <div className="max-w-3xl mx-auto">
-      {/* Hero */}
+    <div className="max-w-4xl mx-auto">
+      {/* ═══════════════════════════════════════════════════════
+          HERO
+          ═══════════════════════════════════════════════════════ */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="mb-8 text-center"
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="mb-10 relative"
       >
-        <h1 className="font-black tracking-tight mb-3" style={{ fontSize: 'var(--text-h1)', color: 'var(--text-primary)' }}>
-          Learn DeFi & VOLT
-        </h1>
-        <p className="font-sans max-w-lg mx-auto" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-body)' }}>
-          Everything you need to understand before opening a leveraged position — from DeFi fundamentals to VOLT-specific mechanics and risks.
-        </p>
+        {/* Subtle background glow */}
+        <div
+          className="absolute -top-20 left-1/2 -translate-x-1/2 w-[500px] h-[300px] pointer-events-none"
+          style={{
+            background: 'radial-gradient(ellipse at center, rgba(41,115,255,0.06) 0%, transparent 70%)',
+          }}
+        />
+
+        <div className="relative text-center pt-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.1, duration: 0.4 }}
+          >
+          </motion.div>
+
+          <h1
+            className="font-black tracking-tight mb-3"
+            style={{ fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', color: 'var(--text-primary)', lineHeight: 1.15 }}
+          >
+            Learn DeFi &{' '}
+            <span style={{ color: 'var(--accent-primary)' }}>VOLT</span>
+          </h1>
+          <p className="font-sans max-w-xl mx-auto mb-6" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-body)', lineHeight: 1.6 }}>
+            Master the fundamentals of DeFi lending, flash loan leverage, and risk management before opening your first position.
+          </p>
+
+          {/* Progress bar */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="max-w-xs mx-auto"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                Progress
+              </span>
+              <span className="font-mono text-[10px] font-bold" style={{ color: 'var(--accent-primary)' }}>
+                {readSections.size}/{sections.length} topics
+              </span>
+            </div>
+            <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+              <motion.div
+                className="h-full rounded-full"
+                style={{ background: 'var(--accent-primary)' }}
+                animate={{ width: `${progress}%` }}
+                transition={{ type: 'spring', stiffness: 60, damping: 15 }}
+              />
+            </div>
+          </motion.div>
+        </div>
       </motion.div>
 
-      {/* Category filter */}
+      {/* ═══════════════════════════════════════════════════════
+          LEVERAGE SIMULATOR
+          ═══════════════════════════════════════════════════════ */}
+      <LeverageSimulator />
+
+      {/* ═══════════════════════════════════════════════════════
+          CATEGORY TABS
+          ═══════════════════════════════════════════════════════ */}
       <motion.div
+        ref={tabsRef}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="flex gap-2 mb-6 flex-wrap justify-center"
+        transition={{ delay: 0.15 }}
+        className="mb-8 sticky top-0 z-20 -mx-4 px-4 py-3"
+        style={{ background: 'linear-gradient(to bottom, rgba(9,9,9,0.97) 70%, transparent)' }}
       >
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat.slug}
-            onClick={() => setActiveCategory(cat.slug)}
-            className="px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all duration-200"
-            style={{
-              background: activeCategory === cat.slug ? 'rgba(41,115,255,0.12)' : 'rgba(255,255,255,0.03)',
-              border: activeCategory === cat.slug ? '1px solid rgba(41,115,255,0.3)' : '1px solid var(--border)',
-              color: activeCategory === cat.slug ? 'var(--accent-primary)' : 'var(--text-muted)',
-            }}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </motion.div>
-
-      {/* Section count */}
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="text-center mb-4 font-mono"
-        style={{ color: 'var(--text-muted)', fontSize: 'var(--text-micro)' }}
-      >
-        {filteredSections.length} topic{filteredSections.length !== 1 ? 's' : ''}
-      </motion.p>
-
-      {/* Accordion sections */}
-      <div className="space-y-3">
-        <AnimatePresence mode="popLayout">
-          {filteredSections.map((section, i) => {
-            const isOpen = openSections.has(section.id);
-            const catColor = section.category === 'fundamentals' ? '#2973ff'
-              : section.category === 'volt' ? '#a78bfa'
-              : '#ef4444';
+        <div className="flex gap-2 flex-wrap justify-center">
+          {CATEGORIES.map((cat) => {
+            const isActive = activeCategory === cat.slug;
+            const catColor = cat.slug === 'all' ? '#2973ff' : CAT_COLORS[cat.slug] || '#2973ff';
             return (
-              <motion.div
-                key={section.id}
-                layout
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ delay: i * 0.03, duration: 0.25 }}
+              <motion.button
+                key={cat.slug}
+                onClick={() => setActiveCategory(cat.slug)}
+                className="relative px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all duration-200 flex items-center gap-2"
+                style={{
+                  background: isActive ? `${catColor}12` : 'rgba(255,255,255,0.02)',
+                  border: isActive ? `1px solid ${catColor}30` : '1px solid var(--border)',
+                  color: isActive ? catColor : 'var(--text-muted)',
+                }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
-                <div
-                  className="rounded-2xl overflow-hidden transition-all duration-200"
+                {cat.label}
+                <span
+                  className="text-[9px] px-1.5 py-0.5 rounded-md font-mono"
                   style={{
-                    background: isOpen ? 'rgba(9, 9, 9, 0.9)' : 'rgba(9, 9, 9, 0.6)',
-                    border: isOpen ? `1px solid ${catColor}25` : '1px solid var(--border)',
+                    background: isActive ? `${catColor}18` : 'rgba(255,255,255,0.04)',
+                    color: isActive ? catColor : 'var(--text-muted)',
                   }}
                 >
-                  {/* Header */}
-                  <button
-                    onClick={() => toggleSection(section.id)}
-                    className="w-full flex items-center gap-3 p-5 text-left"
-                  >
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                      style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border)' }}
-                    >
-                      {section.icon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="font-sans font-bold block" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-body)' }}>
-                        {section.title}
-                      </span>
-                      <span className="font-mono uppercase" style={{ color: catColor, fontSize: '9px', letterSpacing: '0.1em' }}>
-                        {section.category === 'fundamentals' ? 'DEFI BASICS' : section.category === 'volt' ? 'VOLT PROTOCOL' : 'RISK & SAFETY'}
-                      </span>
-                    </div>
-                    <ChevronIcon open={isOpen} />
-                  </button>
-
-                  {/* Content */}
-                  <motion.div
-                    initial={false}
-                    animate={{ height: isOpen ? 'auto' : 0, opacity: isOpen ? 1 : 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="overflow-hidden"
-                  >
-                    <div
-                      className="px-5 pb-5 pt-0 font-sans leading-relaxed"
-                      style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-body)', borderTop: '1px solid rgba(255,255,255,0.04)' }}
-                    >
-                      <div className="pt-4">
-                        {section.content}
-                      </div>
-                    </div>
-                  </motion.div>
-                </div>
-              </motion.div>
+                  {cat.count}
+                </span>
+              </motion.button>
             );
           })}
-        </AnimatePresence>
+        </div>
+      </motion.div>
+
+      {/* ═══════════════════════════════════════════════════════
+          SECTIONS
+          ═══════════════════════════════════════════════════════ */}
+      <div className="space-y-10">
+        {groupedSections.map((group) => (
+          <div key={group.category}>
+            {/* Category header (shown in "all" view) */}
+            {activeCategory === 'all' && (
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3 }}
+                className="flex items-center gap-3 mb-4"
+              >
+                <div
+                  className="w-1 h-5 rounded-full"
+                  style={{ background: group.color }}
+                />
+                <h2
+                  className="font-mono text-[11px] font-bold tracking-[0.15em] uppercase"
+                  style={{ color: group.color }}
+                >
+                  {group.label}
+                </h2>
+                <div className="flex-1 h-px" style={{ background: `${group.color}15` }} />
+                <span className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                  {group.items.length} topics
+                </span>
+              </motion.div>
+            )}
+
+            {/* Sections list */}
+            <div className="space-y-3">
+              <AnimatePresence mode="popLayout">
+                {group.items.map((section, i) => {
+                  const isOpen = openSections.has(section.id);
+                  const isRead = readSections.has(section.id);
+                  const catColor = CAT_COLORS[section.category] || '#2973ff';
+                  return (
+                    <motion.div
+                      key={section.id}
+                      layout
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.98 }}
+                      transition={{ delay: i * 0.04, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                      <div
+                        className="rounded-2xl overflow-hidden transition-all duration-300"
+                        style={{
+                          background: isOpen ? 'var(--bg-card)' : 'rgba(255,255,255,0.015)',
+                          border: isOpen ? `1px solid ${catColor}25` : '1px solid var(--border)',
+                          boxShadow: isOpen ? `0 0 40px ${catColor}06` : 'none',
+                        }}
+                      >
+                        {/* Header */}
+                        <button
+                          onClick={() => toggleSection(section.id)}
+                          className="w-full flex items-center gap-4 p-5 text-left group"
+                        >
+                          {/* Icon */}
+                          <div
+                            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200"
+                            style={{
+                              background: isOpen ? `${catColor}12` : 'var(--bg-surface-1)',
+                              border: `1px solid ${isOpen ? `${catColor}25` : 'var(--border)'}`,
+                            }}
+                          >
+                            {section.icon}
+                          </div>
+
+                          {/* Text */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="font-sans font-bold" style={{ color: 'var(--text-primary)', fontSize: 'var(--text-body)' }}>
+                                {section.title}
+                              </span>
+                              {isRead && !isOpen && (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M20 6L9 17l-5-5" />
+                                </svg>
+                              )}
+                            </div>
+                            <span className="font-sans text-xs" style={{ color: 'var(--text-muted)' }}>
+                              {section.subtitle}
+                            </span>
+                          </div>
+
+                          {/* Meta + chevron */}
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="font-mono text-[10px] hidden sm:block" style={{ color: 'var(--text-muted)' }}>
+                              {section.readTime}
+                            </span>
+                            <ChevronIcon open={isOpen} />
+                          </div>
+                        </button>
+
+                        {/* Content */}
+                        <AnimatePresence initial={false}>
+                          {isOpen && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                              className="overflow-hidden"
+                            >
+                              <div
+                                className="px-5 pb-6 pt-0 font-sans leading-relaxed"
+                                style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-body)', borderTop: '1px solid rgba(255,255,255,0.04)' }}
+                              >
+                                <div className="pt-5 ml-15">
+                                  {section.content}
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* CTA */}
+      {/* ═══════════════════════════════════════════════════════
+          CTA
+          ═══════════════════════════════════════════════════════ */}
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        className="text-center mt-10 space-y-4"
+        initial={{ opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5 }}
+        className="mt-16 mb-8 relative rounded-2xl overflow-hidden"
+        style={{ border: '1px solid var(--border)' }}
       >
-        <p className="font-sans" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-caption)' }}>
-          Ready to put your knowledge into action?
-        </p>
-        <Link href="/markets" className="btn-primary inline-flex items-center gap-2 px-8">
-          Explore Markets
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 12h14M12 5l7 7-7 7" />
-          </svg>
-        </Link>
+        {/* Background gradient */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'radial-gradient(ellipse at 50% 0%, rgba(41,115,255,0.06) 0%, transparent 60%)',
+          }}
+        />
+
+        <div className="relative z-10 py-14 px-6 text-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="mb-4"
+          >
+            <span
+              className="inline-block px-3 py-1.5 rounded-full font-mono text-[10px] font-bold tracking-[0.15em] uppercase"
+              style={{
+                background: 'rgba(41,115,255,0.08)',
+                border: '1px solid rgba(41,115,255,0.2)',
+                color: 'var(--accent-primary)',
+              }}
+            >
+              Ready?
+            </span>
+          </motion.div>
+
+          <h2
+            className="font-black mb-3"
+            style={{ color: 'var(--text-primary)', fontSize: 'clamp(1.25rem, 3vw, 1.75rem)', letterSpacing: '-0.02em' }}
+          >
+            Put Your Knowledge to{' '}
+            <span style={{ color: 'var(--accent-primary)' }}>Work</span>
+          </h2>
+          <p className="font-sans max-w-md mx-auto mb-8" style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-body)' }}>
+            You've learned the fundamentals. Now explore live markets and open your first leveraged position.
+          </p>
+
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <Link href="/markets">
+              <motion.div
+                className="btn-primary w-auto inline-flex items-center justify-center gap-2 px-8 cursor-pointer"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+              >
+                Explore Markets
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </motion.div>
+            </Link>
+            <Link
+              href="/"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-sans font-semibold text-xs transition-all hover:bg-white/[0.04]"
+              style={{ color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+            >
+              Back to Home
+            </Link>
+          </div>
+        </div>
       </motion.div>
     </div>
   );

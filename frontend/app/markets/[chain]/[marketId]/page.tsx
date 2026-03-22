@@ -459,17 +459,6 @@ export default function MarketPage() {
                 <h1 className="font-black" style={{ fontSize: '2rem', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
                   {marketInfo.pair}
                 </h1>
-                <span
-                  className="font-mono font-bold px-2.5 py-1 rounded-lg"
-                  style={{
-                    fontSize: 'var(--text-micro)',
-                    background: 'rgba(255,255,255,0.06)',
-                    color: 'var(--text-secondary)',
-                    border: '1px solid var(--border)',
-                  }}
-                >
-                  {(marketInfo.lltv * 100).toFixed(1)}%
-                </span>
                 {hasPosition && (
                   <StatusBadge
                     status={healthFactorStatus(healthFactor)}
@@ -529,7 +518,7 @@ export default function MarketPage() {
           </div>
 
           {/* ── 4 Metric Cards ── */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Total Market Size */}
             <div
               className="rounded-xl p-4"
@@ -574,19 +563,29 @@ export default function MarketPage() {
               })()}
             </div>
 
-            {/* Rate */}
+            {/* Supply APY */}
             <div
               className="rounded-xl p-4"
               style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
             >
               <p className="font-sans mb-2" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-micro)' }}>
-                Rate
+                Supply APY
+              </p>
+              <p className="font-black font-mono" style={{ fontSize: '1.5rem', color: 'var(--accent-primary)', letterSpacing: '-0.02em' }}>
+                {(marketInfo.supplyApy * 100).toFixed(2)}%
+              </p>
+            </div>
+
+            {/* Borrow APY */}
+            <div
+              className="rounded-xl p-4"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+            >
+              <p className="font-sans mb-2" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-micro)' }}>
+                Borrow APY
               </p>
               <p className="font-black font-mono" style={{ fontSize: '1.5rem', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
                 {(marketInfo.borrowApy * 100).toFixed(2)}%
-              </p>
-              <p className="font-mono mt-1" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-micro)' }}>
-                Borrow APY
               </p>
             </div>
 

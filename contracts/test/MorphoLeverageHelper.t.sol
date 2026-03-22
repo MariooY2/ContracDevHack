@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../src/MorphoLeverageHelper.sol";
 import "../src/interfaces/IMorpho.sol";
 
@@ -32,12 +33,25 @@ contract MorphoLeverageHelperTest is Test {
     address user1;
     address user2;
     address user3;
+    address feeRecipient;
 
     function setUp() public {
         // Fork Base mainnet
         vm.createSelectFork("https://mainnet.base.org");
 
-        helper = new MorphoLeverageHelper(MORPHO);
+        // Setup fee recipient
+        feeRecipient = makeAddr("feeRecipient");
+
+        // Deploy implementation + proxy
+        MorphoLeverageHelper impl = new MorphoLeverageHelper();
+        bytes memory initData = abi.encodeWithSelector(
+            MorphoLeverageHelper.initialize.selector,
+            MORPHO,
+            5, // 0.05% fee
+            feeRecipient
+        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
+        helper = MorphoLeverageHelper(address(proxy));
 
         // Approve Uniswap V3 SwapRouter as swap target
         helper.setSwapTarget(SWAP_ROUTER, true);
