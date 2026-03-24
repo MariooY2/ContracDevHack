@@ -1,9 +1,16 @@
 /**
  * oracleCache.ts
  *
- * Client-side cache for oracle round data from Dune Analytics.
- * Caches in localStorage with a 6-hour TTL to avoid redundant API calls.
+ * Client-side cache for oracle round data fetched directly from Supabase.
+ * Caches in localStorage with a 6-hour TTL to avoid redundant queries.
  */
+
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
+);
 
 const KEY_DATA = 'volt_oracle_data';
 const KEY_META = 'volt_oracle_meta';
@@ -59,17 +66,39 @@ export async function getOracleData(forceRefresh = false): Promise<OracleData> {
     };
   }
 
-  // Fetch from API (Dune Analytics — server-cached, bypass with ?refresh=1)
+  // Fetch directly from Supabase (paginate to get all rows — default limit is 1000)
   try {
-    const url = forceRefresh ? '/api/oracle-logs?refresh=1' : '/api/oracle-logs';
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`Oracle API ${res.status}`);
-    const { points } = await res.json();
-    if (!points?.length) throw new Error('No oracle data returned');
+    const allRows: { round_id: number; rate: number; timestamp: number }[] = [];
+    const PAGE_SIZE = 1000;
+    let from = 0;
+    while (true) {
+      const { data: rows, error } = await supabase
+        .from('oracle_rounds')
+        .select('round_id, rate, timestamp')
+        .eq('oracle_address', '0x04030d2f38bc799af9b0aab5757adc98000d7ded')
+        .order('round_id', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+
+      if (error) throw new Error(`Supabase: ${error.message}`);
+      if (!rows?.length) break;
+      allRows.push(...rows);
+      if (rows.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+
+    if (!allRows.length) throw new Error('No oracle data in Supabase');
+
+    const points: OracleDataPoint[] = allRows.map((row) => ({
+      roundId: Number(row.round_id),
+      rate: Number(row.rate),
+      timestamp: Number(row.timestamp),
+      block: 0,
+    }));
+
     saveCache(points);
     return { points, fromCache: false, cacheAgeMs: 0 };
   } catch (err) {
-    // If API fails but we have stale cache, return it
+    // If Supabase fails but we have stale cache, return it
     if (cached) {
       return {
         points: cached.points,

@@ -31,8 +31,7 @@ export async function GET() {
       round_id: Number(row.round_id),
       rate: Number(row.redemption_rate),
       timestamp: Math.floor(new Date(row.timestamp as string).getTime() / 1000),
-      block: Number(row.block_number),
-      tx_hash: String(row.tx_hash ?? ''),
+      block_number: Number(row.block_number),
     }));
 
     // Upsert in batches of 500
